@@ -56,7 +56,7 @@ MVP 实施资源按商品薯约 70%、种薯约 30% 安排。两类业务同时�
 
 代码仓库创建后的执行顺序：
 
-1. 仓库、分支和提交规范；建立 PostgreSQL、Redis、MinIO 与测试邮件服务的 Docker Compose 本地环境。
+1. 仓库、分支和提交规范；提交 PostgreSQL、Redis、MinIO 与测试邮件服务的 Docker Compose 配置。当前低内存电脑不启动容器，更换环境后将 Docker/WSL 数据放到 E 盘并补做集成环境验证。
 2. 按已确认技术基线和 [API 契约](14-api-contract-and-error-codes.md) 建立 Java 17 后端、uni-app 客户端、Vue 3 管理后台、数据库迁移和 `/api/v1` 接口。
 3. 登录、权限、文件和多语言基础。
 4. 企业、基地和品种内容管理。
