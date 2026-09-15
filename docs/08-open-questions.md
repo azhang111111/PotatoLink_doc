@@ -42,6 +42,7 @@
 | D-034 | 所有业务表主键统一采用 19 位正整数雪花 ID；PostgreSQL 使用 `BIGINT`，Java 使用 `Long`，前端及 JSON/OpenAPI 一律使用字符串表示 ID；雪花 ID 不作为安全令牌或客户身份验证依据 | 已确认 |
 | D-035 | API 统一使用 `/api/v1` 和 JSON，按 `/public`、`/auth`、`/secure`、`/admin` 划分边界；雪花 ID、金额和重量按字符串传输；审批、发布、接受、锁定、释放和取消使用显式动作接口及稳定错误码 | 已确认 |
 | D-036 | 当前开发电脑因内存有限，暂不安装或启动 Docker 与 Docker Compose；代码仓库保留 Compose 配置，先完成宿主机可执行的单元测试、类型检查和前端构建。更换开发环境后再启用 PostgreSQL、Redis、MinIO 和测试邮件服务，并将 Docker/WSL 镜像及数据目录配置到 E 盘 | 已确认 |
+| D-037 | 当前 Windows 开发环境使用 `E:\maven\apache-maven-3.8.6`，Maven 本地仓库使用 `E:\resp`，pnpm 缓存与前端依赖优先放在 E 盘；第一纵向切片以显式 `demo` 配置和内存演示数据完成无容器验收，生产配置不得启用该演示仓储，待新环境启用 PostgreSQL 后补做迁移与持久化集成测试 | 已确认 |
 
 ## 2. 待确认事项使用说明
 
