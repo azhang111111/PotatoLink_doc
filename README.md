@@ -28,6 +28,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 | [待确认事项](docs/08-open-questions.md) | 需要业务方决策的问题及确认记录 |
 | [中俄术语表](docs/09-zh-ru-glossary.md) | 品种、贸易和产品界面的双语术语草案 |
 | [品牌资产与使用方向](docs/10-brand-assets.md) | 佳秀农业现有 Logo、PotatoLink 联合品牌及后续设计要求 |
+| [隐私与合规参考](docs/11-compliance-references.md) | 中俄个人信息保护参考和上线复核边界 |
 
 ## 已确认的产品决策
 
