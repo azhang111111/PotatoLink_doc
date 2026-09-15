@@ -38,6 +38,7 @@
 | D-030 | 已建立两个独立代码仓库：前端 `https://github.com/azhang111111/PotatoLink_frontend.git`，后端 `https://github.com/azhang111111/PotatoLink_backend.git`；本文档仓库继续作为需求和技术基线的版本来源 | 已确认 |
 | D-031 | `PotatoLink_frontend` 和 `PotatoLink_backend` 均设为私有仓库；当前由项目方自行开发，不配置外部开发协作者；新增团队成员时再按最小权限原则单独授权 | 已确认 |
 | D-032 | 当前采用可扩展的轻量分支管理：`main` 保持可部署，日常变更使用短期 `feature/*` 或 `fix/*` 分支，构建和测试通过后合并；现阶段不强制他人审批，团队扩大后再启用强制 Pull Request 审批和更严格的分支保护 | 已确认 |
+| D-033 | 本地开发环境使用 Docker Compose 统一运行 PostgreSQL、Redis、MinIO 和测试邮件服务；应用可在宿主机启动以支持热更新；测试与生产服务器及云服务商暂不锁定，后续单独确认 | 已确认 |
 
 ## 2. 待确认事项使用说明
 
@@ -114,10 +115,11 @@
 - 后端代码仓库：`https://github.com/azhang111111/PotatoLink_backend.git`。
 - 两个代码仓库均为私有仓库，当前由项目方自行开发，暂不配置外部开发协作者。
 - 分支管理先采用轻量方案，保留随团队规模扩展审批和保护规则的能力。
+- 本地开发基础设施使用 Docker Compose，包含 PostgreSQL、Redis、MinIO 和测试邮件服务；应用开发进程可在宿主机启动。
 
 仍需决定：
 
-- 开发、测试和生产环境。
+- 测试和生产环境的服务器及云服务商。
 - 数据库、对象存储、邮件服务和域名。
 - 负责人、分支策略和发布流程。
 
