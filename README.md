@@ -36,6 +36,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 | [隐私与合规参考](docs/11-compliance-references.md) | 中俄个人信息保护参考和上线复核边界 |
 | [技术架构基线](docs/12-technical-architecture.md) | 前后端分离、前后端技术栈及模块边界 |
 | [数据库与状态机设计](docs/13-database-and-state-machine.md) | 核心表、数据约束、库存并发和业务状态流转 |
+| [API 契约与错误码](docs/14-api-contract-and-error-codes.md) | REST API 分组、接口清单、通用协议和错误码 |
 
 ## 已确认的产品决策
 

@@ -1,0 +1,1258 @@
+openapi: 3.1.0
+info:
+  title: PotatoLink API
+  version: 0.1.0
+  description: |
+    PotatoLink 中俄薯贸 MVP API 契约草案。
+    本文件首先覆盖“公开展示—供应—询价—后台接收与跟进”切片。
+    所有雪花 ID、金额和重量在 JSON 中均使用字符串。
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+tags:
+  - name: Public
+  - name: Authentication
+  - name: Admin inquiries
+paths:
+  /public/company:
+    get:
+      tags: [Public]
+      operationId: getPublicCompany
+      summary: Get public company profile
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Company profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /public/varieties:
+    get:
+      tags: [Public]
+      operationId: listPublicVarieties
+      summary: List published potato varieties
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: businessType
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessType'
+        - name: maturityType
+          in: query
+          schema:
+            type: string
+        - name: useCase
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Published varieties
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VarietyPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /public/varieties/{id}:
+    get:
+      tags: [Public]
+      operationId: getPublicVariety
+      summary: Get a published variety
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Variety detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VarietyDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /public/supply-batches:
+    get:
+      tags: [Public]
+      operationId: listPublicSupplyBatches
+      summary: List public supply batches
+      description: Exact inventory, internal price, cost, and internal notes are never returned.
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: businessType
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessType'
+        - name: varietyId
+          in: query
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+        - name: supplyStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/PublicSupplyStatus'
+      responses:
+        '200':
+          description: Public supply batches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyBatchPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /public/supply-batches/{id}:
+    get:
+      tags: [Public]
+      operationId: getPublicSupplyBatch
+      summary: Get a public supply batch
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Public supply batch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyBatchDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /public/inquiries:
+    post:
+      tags: [Public]
+      operationId: createPublicInquiry
+      summary: Submit a commodity or seed potato inquiry
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+      responses:
+        '201':
+          description: Inquiry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/admin/login:
+    post:
+      tags: [Authentication]
+      operationId: loginAdmin
+      summary: Authenticate an internal user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Authentication tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/inquiries:
+    get:
+      tags: [Admin inquiries]
+      operationId: listAdminInquiries
+      summary: List inquiries visible to the internal user
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: businessType
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InquiryStatus'
+        - name: ownerUserId
+          in: query
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+        - name: slaStatus
+          in: query
+          schema:
+            type: string
+            enum: [ON_TIME, RESPONSE_DUE, ESCALATED, TIMED_OUT]
+      responses:
+        '200':
+          description: Inquiry page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInquiryPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/inquiries/{id}:
+    get:
+      tags: [Admin inquiries]
+      operationId: getAdminInquiry
+      summary: Get inquiry detail
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Inquiry detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInquiryDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/inquiries/{id}/assign:
+    post:
+      tags: [Admin inquiries]
+      operationId: assignAdminInquiry
+      summary: Assign an inquiry owner and backup owner
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryAssignRequest'
+      responses:
+        '200':
+          description: Updated inquiry detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInquiryDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /admin/inquiries/{id}/follow-ups:
+    post:
+      tags: [Admin inquiries]
+      operationId: addInquiryFollowUp
+      summary: Add an inquiry follow-up
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FollowUpCreateRequest'
+      responses:
+        '201':
+          description: Follow-up created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowUpCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    SecureAccessToken:
+      type: apiKey
+      in: header
+      name: X-Secure-Access-Token
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [zh-CN, ru-RU]
+        default: zh-CN
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    SnowflakeIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/SnowflakeId'
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Resource not found or hidden from current caller
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Resource state or idempotency conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnprocessableEntity:
+      description: Business rule validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalError:
+      description: Unexpected internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Required dependency unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    SnowflakeId:
+      type: string
+      pattern: '^[1-9][0-9]{18}$'
+      example: '1987654321098765432'
+    DecimalString:
+      type: string
+      pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+      example: '25000.000'
+    BusinessType:
+      type: string
+      enum: [COMMODITY, SEED]
+    PublicSupplyStatus:
+      type: string
+      enum:
+        - COMING_SOON
+        - AVAILABLE
+        - PREORDER
+        - LIMITED
+        - PAUSED
+        - SOLD_OUT
+    InquiryStatus:
+      type: string
+      enum:
+        - PENDING_ASSIGNMENT
+        - ASSIGNED
+        - FOLLOWING
+        - REQUIREMENT_CONFIRMED
+        - QUOTING
+        - QUOTED
+        - WON
+        - LOST
+        - CLOSED
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - MALFORMED_REQUEST
+        - UNSUPPORTED_LOCALE
+        - UNAUTHENTICATED
+        - TOKEN_INVALID
+        - TOKEN_EXPIRED
+        - EMAIL_CODE_INVALID
+        - EMAIL_CODE_EXPIRED
+        - FORBIDDEN
+        - DATA_SCOPE_FORBIDDEN
+        - RESOURCE_NOT_FOUND
+        - STATE_CONFLICT
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_CONFLICT
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+        - DEPENDENCY_UNAVAILABLE
+        - CONTACT_METHOD_REQUIRED
+        - CUSTOMER_MERGED
+        - VARIETY_NOT_PUBLISHED
+        - SUPPLY_BATCH_NOT_AVAILABLE
+        - BUSINESS_TYPE_MISMATCH
+        - MIXED_VARIETY_IN_ITEM
+        - MOQ_NOT_MET
+        - SPECIAL_REVIEW_REQUIRED
+        - INQUIRY_ALREADY_CLOSED
+        - INQUIRY_OWNER_REQUIRED
+        - INQUIRY_STATUS_INVALID
+        - QUOTATION_APPROVAL_REQUIRED
+        - QUOTATION_VERSION_IMMUTABLE
+        - QUOTATION_NOT_SENT
+        - QUOTATION_EXPIRED
+        - QUOTATION_ALREADY_ACCEPTED
+        - QUOTATION_ACCESS_DENIED
+        - INVENTORY_INSUFFICIENT
+        - INVENTORY_RESERVATION_EXPIRED
+        - INVENTORY_RESERVATION_CONFLICT
+        - ORDER_STATUS_INVALID
+        - ORDER_ACCESS_DENIED
+        - ROUTE_NOT_ACTIVE
+        - CONTRACT_REQUIRED
+        - SAMPLE_VARIETY_LIMIT_EXCEEDED
+        - SAMPLE_REVIEW_REQUIRED
+        - SAMPLE_STATUS_INVALID
+        - DOCUMENT_NOT_VERIFIED
+        - DOCUMENT_EXPIRED
+        - DOCUMENT_ACCESS_DENIED
+        - FILE_TYPE_NOT_ALLOWED
+        - FILE_TOO_LARGE
+        - NOTIFICATION_SEND_FAILED
+        - EXPORT_PERMISSION_REQUIRED
+    FieldError:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          example: items[0].quantityKg
+        reason:
+          type: string
+          example: must be greater than zero
+    ApiError:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          example: Request validation failed
+        requestId:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+    PageMeta:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+    MediaAsset:
+      type: object
+      required: [url, mediaType]
+      properties:
+        url:
+          type: string
+          format: uri
+        mediaType:
+          type: string
+          enum: [IMAGE, VIDEO]
+        altText:
+          type: string
+    Company:
+      type: object
+      required: [id, legalName, displayName, description]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        legalName:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        contact:
+          type: object
+          additionalProperties: true
+        logoUrl:
+          type: string
+          format: uri
+    CompanyResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Company'
+        requestId:
+          type: string
+    VarietySummary:
+      type: object
+      required: [id, code, name, maturityType, commodityEnabled, seedEnabled]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        code:
+          type: string
+        name:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        maturityType:
+          type: string
+        commodityEnabled:
+          type: boolean
+        seedEnabled:
+          type: boolean
+        coverImageUrl:
+          type: string
+          format: uri
+    VarietyDetail:
+      allOf:
+        - $ref: '#/components/schemas/VarietySummary'
+        - type: object
+          required: [advantages, risks, recommendedUses]
+          properties:
+            growthDays:
+              type: string
+            skinColor:
+              type: string
+            fleshColor:
+              type: string
+            shape:
+              type: string
+            advantages:
+              type: array
+              items:
+                type: string
+            risks:
+              type: array
+              items:
+                type: string
+            recommendedUses:
+              type: array
+              items:
+                type: string
+            media:
+              type: array
+              items:
+                $ref: '#/components/schemas/MediaAsset'
+    VarietyPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VarietySummary'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    VarietyPageResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/VarietyPage'
+        requestId:
+          type: string
+    VarietyDetailResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/VarietyDetail'
+        requestId:
+          type: string
+    SupplyBatchSummary:
+      type: object
+      required:
+        - id
+        - batchNo
+        - businessType
+        - variety
+        - supplyStatus
+        - quantityVisibility
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchNo:
+          type: string
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        variety:
+          $ref: '#/components/schemas/VarietySummary'
+        baseName:
+          type: string
+        availableFrom:
+          type: string
+          format: date
+        supplyStatus:
+          $ref: '#/components/schemas/PublicSupplyStatus'
+        quantityVisibility:
+          type: string
+          enum: [RANGE, STATUS_ONLY, HIDDEN]
+        publicQuantityRange:
+          type: string
+        packageDescription:
+          type: string
+        coverImageUrl:
+          type: string
+          format: uri
+    SupplyBatchDetail:
+      allOf:
+        - $ref: '#/components/schemas/SupplyBatchSummary'
+        - type: object
+          properties:
+            specification:
+              type: string
+            processingMethods:
+              type: array
+              items:
+                type: string
+            storageDescription:
+              type: string
+            publicDescription:
+              type: string
+            verifiedDocumentSummaries:
+              type: array
+              items:
+                type: object
+                required: [documentType, name, verificationStatus]
+                properties:
+                  documentType:
+                    type: string
+                  name:
+                    type: string
+                  issuedAt:
+                    type: string
+                    format: date
+                  expiresAt:
+                    type: string
+                    format: date
+                  verificationStatus:
+                    type: string
+    SupplyBatchPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupplyBatchSummary'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    SupplyBatchPageResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SupplyBatchPage'
+        requestId:
+          type: string
+    SupplyBatchDetailResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SupplyBatchDetail'
+        requestId:
+          type: string
+    ContactInput:
+      type: object
+      required: [contactName, countryCode]
+      properties:
+        companyName:
+          type: string
+          maxLength: 200
+        contactName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        region:
+          type: string
+          maxLength: 100
+        city:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        telegram:
+          type: string
+          maxLength: 100
+      anyOf:
+        - required: [phone]
+        - required: [email]
+    InquiryItemInput:
+      type: object
+      required: [quantityKg, originalQuantity, originalUnit]
+      properties:
+        varietyId:
+          $ref: '#/components/schemas/SnowflakeId'
+        recommendationRequested:
+          type: boolean
+          default: false
+        quantityKg:
+          $ref: '#/components/schemas/DecimalString'
+        originalQuantity:
+          $ref: '#/components/schemas/DecimalString'
+        originalUnit:
+          type: string
+          enum: [KG, TON]
+        useCase:
+          type: string
+        specification:
+          type: string
+        washed:
+          type: boolean
+        packageTypeCode:
+          type: string
+        notes:
+          type: string
+          maxLength: 1000
+      oneOf:
+        - required: [varietyId]
+        - required: [recommendationRequested]
+          properties:
+            recommendationRequested:
+              const: true
+    CommodityInquiryItemInput:
+      allOf:
+        - $ref: '#/components/schemas/InquiryItemInput'
+        - type: object
+          required: [useCase, specification, washed, packageTypeCode]
+    SeedInquiryItemInput:
+      allOf:
+        - $ref: '#/components/schemas/InquiryItemInput'
+        - type: object
+          required: [specification, packageTypeCode]
+    SeedRequirementInput:
+      type: object
+      required:
+        - plantingCountryCode
+        - plantingRegion
+        - plantingArea
+        - plantingAreaUnit
+        - soilType
+        - irrigated
+        - continuousCropping
+        - expectedPlantingDate
+        - targetHarvestDate
+      properties:
+        plantingCountryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        plantingRegion:
+          type: string
+        plantingArea:
+          $ref: '#/components/schemas/DecimalString'
+        plantingAreaUnit:
+          type: string
+        soilType:
+          type: string
+        irrigated:
+          type: boolean
+        continuousCropping:
+          type: boolean
+        expectedPlantingDate:
+          type: string
+          format: date
+        targetHarvestDate:
+          type: string
+          format: date
+        requestedSeedClassCode:
+          type: string
+        seedClassRecommendationRequested:
+          type: boolean
+          default: false
+      oneOf:
+        - required: [requestedSeedClassCode]
+        - required: [seedClassRecommendationRequested]
+          properties:
+            seedClassRecommendationRequested:
+              const: true
+    DeliveryRequirementInput:
+      type: object
+      required: [countryCode, expectedDeliveryDate]
+      properties:
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        city:
+          type: string
+        portOrHandoverPoint:
+          type: string
+        expectedDeliveryDate:
+          type: string
+          format: date
+      anyOf:
+        - required: [city]
+        - required: [portOrHandoverPoint]
+    ConsentInput:
+      type: object
+      required: [privacyPolicyVersion, privacyAccepted]
+      properties:
+        privacyPolicyVersion:
+          type: string
+        privacyAccepted:
+          type: boolean
+          const: true
+        marketingAccepted:
+          type: boolean
+          default: false
+    InquiryBaseFields:
+      type: object
+      required:
+        - preferredLocale
+        - contact
+        - delivery
+        - consent
+      properties:
+        preferredLocale:
+          type: string
+          enum: [zh-CN, ru-RU]
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        delivery:
+          $ref: '#/components/schemas/DeliveryRequirementInput'
+        specialRequirement:
+          type: boolean
+          default: false
+        notes:
+          type: string
+          maxLength: 2000
+        consent:
+          $ref: '#/components/schemas/ConsentInput'
+    CommodityInquiryCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/InquiryBaseFields'
+        - type: object
+          required: [businessType, items]
+          properties:
+            businessType:
+              const: COMMODITY
+            items:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/CommodityInquiryItemInput'
+    SeedInquiryCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/InquiryBaseFields'
+        - type: object
+          required: [businessType, items, seedRequirement]
+          properties:
+            businessType:
+              const: SEED
+            items:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/SeedInquiryItemInput'
+            seedRequirement:
+              $ref: '#/components/schemas/SeedRequirementInput'
+    InquiryCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/CommodityInquiryCreateRequest'
+        - $ref: '#/components/schemas/SeedInquiryCreateRequest'
+      discriminator:
+        propertyName: businessType
+        mapping:
+          COMMODITY: '#/components/schemas/CommodityInquiryCreateRequest'
+          SEED: '#/components/schemas/SeedInquiryCreateRequest'
+    InquiryCreated:
+      type: object
+      required: [id, inquiryNo, status, submittedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        inquiryNo:
+          type: string
+        status:
+          $ref: '#/components/schemas/InquiryStatus'
+        submittedAt:
+          type: string
+          format: date-time
+        specialReviewRequired:
+          type: boolean
+    InquiryCreatedResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/InquiryCreated'
+        requestId:
+          type: string
+    AdminLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+    AdminPrincipal:
+      type: object
+      required: [id, displayName, roles, permissions]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        displayName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+    AdminTokenData:
+      type: object
+      required: [accessToken, accessTokenExpiresAt, refreshToken, principal]
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+        principal:
+          $ref: '#/components/schemas/AdminPrincipal'
+    AdminLoginResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AdminTokenData'
+        requestId:
+          type: string
+    AdminInquirySummary:
+      type: object
+      required:
+        - id
+        - inquiryNo
+        - businessType
+        - customerName
+        - status
+        - createdAt
+        - slaStatus
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        inquiryNo:
+          type: string
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        customerName:
+          type: string
+        status:
+          $ref: '#/components/schemas/InquiryStatus'
+        ownerUserId:
+          $ref: '#/components/schemas/SnowflakeId'
+        ownerDisplayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        responseDueAt:
+          type: string
+          format: date-time
+        slaStatus:
+          type: string
+          enum: [ON_TIME, RESPONSE_DUE, ESCALATED, TIMED_OUT]
+    AdminInquiryPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInquirySummary'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    AdminInquiryPageResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AdminInquiryPage'
+        requestId:
+          type: string
+    FollowUp:
+      type: object
+      required: [id, method, summary, effective, createdAt, createdBy]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        method:
+          type: string
+          enum: [WECHAT, PHONE, EMAIL, TELEGRAM, MEETING, OTHER]
+        summary:
+          type: string
+        effective:
+          type: boolean
+        nextFollowUpAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: '#/components/schemas/SnowflakeId'
+    AdminInquiryDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminInquirySummary'
+        - type: object
+          required: [contact, items, followUps]
+          properties:
+            contact:
+              $ref: '#/components/schemas/ContactInput'
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/InquiryItemInput'
+            delivery:
+              $ref: '#/components/schemas/DeliveryRequirementInput'
+            seedRequirement:
+              $ref: '#/components/schemas/SeedRequirementInput'
+            notes:
+              type: string
+            followUps:
+              type: array
+              items:
+                $ref: '#/components/schemas/FollowUp'
+    AdminInquiryDetailResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AdminInquiryDetail'
+        requestId:
+          type: string
+    InquiryAssignRequest:
+      type: object
+      required: [ownerUserId]
+      properties:
+        ownerUserId:
+          $ref: '#/components/schemas/SnowflakeId'
+        backupUserId:
+          $ref: '#/components/schemas/SnowflakeId'
+        reason:
+          type: string
+          maxLength: 500
+    FollowUpCreateRequest:
+      type: object
+      required: [method, summary, effective]
+      properties:
+        method:
+          type: string
+          enum: [WECHAT, PHONE, EMAIL, TELEGRAM, MEETING, OTHER]
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        effective:
+          type: boolean
+        nextFollowUpAt:
+          type: string
+          format: date-time
+    FollowUpCreatedResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/FollowUp'
+        requestId:
+          type: string
