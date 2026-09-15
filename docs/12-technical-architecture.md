@@ -31,6 +31,8 @@
 
 生产环境使用的 PostgreSQL、Redis 和对象存储具体版本及云服务商，在部署资源确认后锁定。PDF 报价单、Excel 导出和定时任务所使用的具体库在技术详细设计阶段通过最小验证后确定。
 
+所有业务表主键使用 19 位雪花 ID。后端实体使用 `Long`，数据库使用 `BIGINT`，MyBatis-Plus 初始实现使用 `ASSIGN_ID` 并通过统一 ID 生成接口封装。所有外部 API、JSON 和前端 TypeScript 类型将 ID 定义为字符串，禁止转换为 JavaScript `number`。雪花 ID 只用于数据标识，安全链接继续使用不可预测的加密随机令牌。
+
 ## 3. 后端模块边界
 
 建议初始包结构按业务领域组织，而不是按 controller、service、mapper 做全局分层：

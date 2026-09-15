@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 | v0.1 |
+| 版本 | v0.2 |
 | 状态 | 技术设计草案，进入代码初始化前复核 |
 | 适用范围 | PotatoLink MVP |
 
@@ -22,7 +22,7 @@
 | 项目 | 约定 |
 |---|---|
 | 数据库 | PostgreSQL，具体版本在后端工程初始化时锁定 |
-| 主键 | `UUID`，不得作为面向客户的业务编号展示 |
+| 主键 | 19 位正整数雪花 ID；PostgreSQL 使用 `BIGINT`，Java 使用 `Long` |
 | 业务编号 | 询价、报价、样品、订单和批次使用独立、唯一、可读编号 |
 | 时间 | `TIMESTAMPTZ`；接口输出 ISO 8601 并带时区 |
 | 金额 | `NUMERIC(18,2)`，禁止使用浮点类型；每条金额记录币种 |
@@ -34,6 +34,17 @@
 | 扩展字段 | `JSONB` 只保存快照或低频扩展信息，核心筛选字段必须独立建列 |
 
 业务编号可以被客户看到，但不能代替身份认证。报价、订单和完整文件的访问仍须校验客户身份、限时令牌或二次验证码。
+
+### 2.1 雪花 ID 约定
+
+- 所有业务主表、明细表、关联表和审计表统一使用雪花 ID，不使用数据库自增主键或 UUID 主键。
+- ID 必须为 19 位正整数，取值范围为 `1000000000000000000` 至 PostgreSQL 有符号 `BIGINT` 上限 `9223372036854775807`。
+- 后端通过统一 `IdGenerator` 生成，初始实现采用 MyBatis-Plus `IdType.ASSIGN_ID`；业务代码不得自行拼接时间戳或随机数生成主键。
+- 每个同时运行的后端实例必须配置唯一的 worker/datacenter 组合；开发、测试和生产使用不同配置，部署检查必须阻止重复节点编号上线。
+- 生成器必须处理时钟回拨：小幅回拨等待恢复，超过允许阈值时拒绝生成并告警，禁止在回拨期间产生可能重复的 ID。
+- Jackson、OpenAPI 和 TypeScript 将所有 ID 序列化为字符串；请求参数也按字符串接收并在后端校验后转换为 `Long`。
+- OpenAPI ID 字段使用 `type: string`，并约束格式为 19 位正整数字符串。前端禁止对 ID 执行数值计算或转换为 JavaScript `number`。
+- 雪花 ID 可能暴露大致生成顺序，不具备不可预测性。私有报价、订单和文件访问继续使用密码学安全随机令牌，并只保存令牌哈希。
 
 ## 3. 模块与表命名
 
@@ -84,7 +95,7 @@ erDiagram
 
 | 字段 | 类型/约束 | 说明 |
 |---|---|---|
-| `id` | UUID PK | 内部用户标识 |
+| `id` | BIGINT PK | 19 位雪花 ID，接口按字符串传输 |
 | `username` | VARCHAR UNIQUE | 登录名 |
 | `display_name` | VARCHAR | 显示名称 |
 | `mobile` | VARCHAR NULL | 内部通知手机号 |
@@ -98,7 +109,7 @@ erDiagram
 
 | 字段 | 类型/约束 | 说明 |
 |---|---|---|
-| `id` | UUID PK | 客户标识 |
+| `id` | BIGINT PK | 19 位雪花 ID，接口按字符串传输 |
 | `customer_no` | VARCHAR UNIQUE | 面向业务的客户编号 |
 | `customer_type` | VARCHAR | `COMPANY` 或 `INDIVIDUAL` |
 | `company_name` | VARCHAR NULL | 企业名称 |
@@ -107,9 +118,9 @@ erDiagram
 | `region`、`city` | VARCHAR NULL | 地区和城市 |
 | `preferred_locale` | VARCHAR | `zh-CN`、`ru-RU` 等 |
 | `source_channel` | VARCHAR | 小程序、H5、销售代录等 |
-| `owner_user_id` | UUID FK NULL | 当前主负责人 |
+| `owner_user_id` | BIGINT FK NULL | 当前主负责人 |
 | `status` | VARCHAR | `LEAD`、`ACTIVE`、`INACTIVE`、`MERGED` |
-| `merged_into_id` | UUID FK NULL | 重复客户合并目标 |
+| `merged_into_id` | BIGINT FK NULL | 重复客户合并目标 |
 
 ### 5.3 客户身份与联系方式
 
@@ -146,11 +157,11 @@ erDiagram
 
 | 字段 | 类型/约束 | 说明 |
 |---|---|---|
-| `id` | UUID PK | 批次标识 |
+| `id` | BIGINT PK | 19 位雪花 ID，接口按字符串传输 |
 | `batch_no` | VARCHAR UNIQUE | 批次编号和二维码业务键 |
 | `business_type` | VARCHAR | `COMMODITY` 或 `SEED` |
-| `variety_id` | UUID FK | 一个批次只对应一个品种 |
-| `base_id` | UUID FK | 生产或存储基地 |
+| `variety_id` | BIGINT FK | 一个批次只对应一个品种 |
+| `base_id` | BIGINT FK | 生产或存储基地 |
 | `crop_year` | SMALLINT | 年份 |
 | `harvest_at` | DATE NULL | 实际或预计采收日期 |
 | `available_from` | DATE NULL | 预计上市日期 |
@@ -172,7 +183,7 @@ erDiagram
 
 | 字段 | 类型/约束 | 说明 |
 |---|---|---|
-| `batch_id` | UUID PK/FK | 每批次一条库存汇总 |
+| `batch_id` | BIGINT PK/FK | 每批次一条库存汇总 |
 | `on_hand_kg` | NUMERIC(18,3) | 当前实物可管理总量 |
 | `temp_locked_kg` | NUMERIC(18,3) | 生效的临时锁定量 |
 | `committed_kg` | NUMERIC(18,3) | 合同或定金确认后的正式占用量 |
@@ -191,15 +202,15 @@ erDiagram
 
 | 字段 | 类型/约束 | 说明 |
 |---|---|---|
-| `id` | UUID PK | 询价标识 |
+| `id` | BIGINT PK | 19 位雪花 ID，接口按字符串传输 |
 | `inquiry_no` | VARCHAR UNIQUE | 客户可见编号 |
-| `inquiry_group_id` | UUID FK NULL | 同次混合采购或关联需求组 |
+| `inquiry_group_id` | BIGINT FK NULL | 同次混合采购或关联需求组 |
 | `business_type` | VARCHAR | `COMMODITY` 或 `SEED` |
-| `customer_id` | UUID FK | 提交客户 |
+| `customer_id` | BIGINT FK | 提交客户 |
 | `source_channel` | VARCHAR | 小程序、H5、销售代录等 |
 | `status` | VARCHAR | 询价状态 |
-| `owner_user_id` | UUID FK NULL | 主负责人 |
-| `backup_user_id` | UUID FK NULL | 备用负责人 |
+| `owner_user_id` | BIGINT FK NULL | 主负责人 |
+| `backup_user_id` | BIGINT FK NULL | 备用负责人 |
 | `assigned_at` | TIMESTAMPTZ NULL | 分配时间 |
 | `first_response_at` | TIMESTAMPTZ NULL | 首次有效响应 |
 | `response_due_at` | TIMESTAMPTZ NULL | 2 小时响应目标 |
@@ -392,17 +403,18 @@ VERIFIED → EXPIRED | REPLACED | REVOKED
 首批迁移至少实现以下约束：
 
 1. 批次、询价、报价、样品和订单业务编号全局唯一。
-2. 数量、重量、单价、金额、库存和锁定值不得为负。
-3. 询价、报价、订单和样品明细必须至少一条。
-4. 一个明细只能关联一个品种，不允许用单行表达混合品种。
-5. 订单分配批次的品种和业务类型必须与订单明细一致，由业务层校验并用集成测试覆盖。
-6. 报价版本号在同一报价内唯一；已发送版本的业务字段不可更新。
-7. 一个报价只能存在一个被接受的版本；一个报价版本最多生成一个有效订单。
-8. 库存可售量不得小于零；每个生效库存副作用必须有唯一幂等键和流水。
-9. 临时锁定必须具有到期时间；正式占用不得设置自动到期。
-10. 订单路线、报价规则、产品名称、规格和价格使用快照保存。
-11. 游客不可获得精确库存、内部价格、成本、未脱敏文件和客户交易数据。
-12. 删除客户前必须执行保存期限、交易留存和匿名化规则，不能级联删除交易记录。
+2. 所有主键必须是 19 位正整数雪花 ID；所有外键使用相同的 `BIGINT` 类型。
+3. 数量、重量、单价、金额、库存和锁定值不得为负。
+4. 询价、报价、订单和样品明细必须至少一条。
+5. 一个明细只能关联一个品种，不允许用单行表达混合品种。
+6. 订单分配批次的品种和业务类型必须与订单明细一致，由业务层校验并用集成测试覆盖。
+7. 报价版本号在同一报价内唯一；已发送版本的业务字段不可更新。
+8. 一个报价只能存在一个被接受的版本；一个报价版本最多生成一个有效订单。
+9. 库存可售量不得小于零；每个生效库存副作用必须有唯一幂等键和流水。
+10. 临时锁定必须具有到期时间；正式占用不得设置自动到期。
+11. 订单路线、报价规则、产品名称、规格和价格使用快照保存。
+12. 游客不可获得精确库存、内部价格、成本、未脱敏文件和客户交易数据。
+13. 删除客户前必须执行保存期限、交易留存和匿名化规则，不能级联删除交易记录。
 
 跨表、跨行的复杂不变量由领域服务在事务中保证，并通过数据库检查约束、唯一索引和集成测试形成多层保护。
 
@@ -453,6 +465,7 @@ Flyway 迁移一旦进入共享环境不得修改原文件，只能新增更高�
 11. 订单取消时释放所有未履约占用，已履约流水不被反向删除。
 12. 通知发送失败不回滚询价、报价接受或订单状态事务。
 13. 样品待发出时占用对应批次库存，发出只扣减一次，取消或超时正确释放。
+14. 雪花 ID 在并发、跨节点和模拟时钟回拨测试中保持 19 位、正数且不重复；接口序列化后仍为字符串。
 
 ## 20. 进入编码前的输出
 

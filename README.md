@@ -52,6 +52,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 11. 前后端分别使用 `PotatoLink_frontend` 和 `PotatoLink_backend` 两个独立 GitHub 仓库。
 12. 前后端代码仓库均为私有仓库，当前由项目方自行开发，暂不添加外部开发协作者。
 13. 本地开发基础设施使用 Docker Compose，统一运行 PostgreSQL、Redis、MinIO 和测试邮件服务；测试与生产云资源后续确定。
+14. 所有业务表主键统一使用 19 位雪花 ID；接口中的 ID 一律按字符串传输，避免前端精度丢失。
 
 ## 变更管理
 
