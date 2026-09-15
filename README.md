@@ -49,6 +49,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 9. 系统采用前后端分离架构；后端基于 Java 17、Spring Boot 3.5 和模块化单体架构建设。
 10. 微信小程序与俄语 H5 使用 uni-app、Vue 3 和 TypeScript；管理后台使用 Vue 3、TypeScript、Vite 和 Element Plus。
 11. 前后端分别使用 `PotatoLink_frontend` 和 `PotatoLink_backend` 两个独立 GitHub 仓库。
+12. 前后端代码仓库均为私有仓库，当前由项目方自行开发，暂不添加外部开发协作者。
 
 ## 变更管理
 
