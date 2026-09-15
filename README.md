@@ -2,7 +2,12 @@
 
 PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀农业发起。平台同时经营商品薯与种薯，通过微信小程序、俄语 H5 和统一管理后台，连接产品展示、智能选品、在线询价、批次溯源与订单协同。
 
-> 当前仓库只存放业务、产品和项目管理文档。需求确认后，另建代码仓库进行开发。
+> 当前仓库只存放业务、产品和项目管理文档。前后端代码仓库已经建立，待需求确认后开始开发。
+
+代码仓库已经创建：
+
+- 前端：[PotatoLink_frontend](https://github.com/azhang111111/PotatoLink_frontend)
+- 后端：[PotatoLink_backend](https://github.com/azhang111111/PotatoLink_backend)
 
 ## 当前状态
 
@@ -43,6 +48,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 8. 企业法律全称为“张北县佳秀农业开发有限公司”，对外简称“佳秀农业”。
 9. 系统采用前后端分离架构；后端基于 Java 17、Spring Boot 3.5 和模块化单体架构建设。
 10. 微信小程序与俄语 H5 使用 uni-app、Vue 3 和 TypeScript；管理后台使用 Vue 3、TypeScript、Vite 和 Element Plus。
+11. 前后端分别使用 `PotatoLink_frontend` 和 `PotatoLink_backend` 两个独立 GitHub 仓库。
 
 ## 变更管理
 

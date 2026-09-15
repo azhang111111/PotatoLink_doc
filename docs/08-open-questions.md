@@ -35,6 +35,7 @@
 | D-027 | MVP 管理报表覆盖询价数量与来源、响应 SLA、转化率、未成交原因、报价和订单金额、成交吨数、品种批次、样品、运输异常及文件到期；支持受控导出主要业务数据并记录审计；增加可关闭的成本与毛利功能，仅管理及财务人员可见，销售默认不可见 | 已确认 |
 | D-028 | PotatoLink 采用前后端分离架构；后端使用 Java 17、Spring Boot 3.5、Spring Security、MyBatis-Plus、PostgreSQL、Redis 和 Flyway，以模块化单体方式建设，通过版本化 REST API 服务微信小程序、俄语 H5 和管理后台 | 已确认 |
 | D-029 | 微信小程序与俄语 H5 使用 uni-app、Vue 3 和 TypeScript 建设并共享适合复用的业务代码；管理后台使用 Vue 3、TypeScript、Vite 和 Element Plus，作为独立应用构建和部署 | 已确认 |
+| D-030 | 已建立两个独立代码仓库：前端 `https://github.com/azhang111111/PotatoLink_frontend.git`，后端 `https://github.com/azhang111111/PotatoLink_backend.git`；本文档仓库继续作为需求和技术基线的版本来源 | 已确认 |
 
 ## 2. 待确认事项使用说明
 
@@ -107,10 +108,12 @@
 - 文件开发环境可使用 MinIO，生产环境接入云对象存储；具体服务商在部署资源确定后选择。
 - Maven 负责构建，Docker 与 Nginx 用于标准化部署；接口文档采用 OpenAPI。
 - 微信小程序与俄语 H5 使用 uni-app、Vue 3 和 TypeScript；管理后台使用 Vue 3、TypeScript、Vite 和 Element Plus。
+- 前端代码仓库：`https://github.com/azhang111111/PotatoLink_frontend.git`。
+- 后端代码仓库：`https://github.com/azhang111111/PotatoLink_backend.git`。
 
 仍需决定：
 
-- 新代码仓库名称和访问权限。
+- 两个代码仓库的可见性、协作者权限和分支保护规则。
 - 开发、测试和生产环境。
 - 数据库、对象存储、邮件服务和域名。
 - 负责人、分支策略和发布流程。
