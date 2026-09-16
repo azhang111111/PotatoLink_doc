@@ -243,6 +243,95 @@ paths:
                 $ref: '#/components/schemas/AdminPrincipalResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /admin/internal-users:
+    get:
+      tags: [Admin identity]
+      operationId: listInternalUsers
+      summary: List internal users visible to the current manager or administrator
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Internal user list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPrincipalListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin identity]
+      operationId: createInternalUser
+      summary: Create an internal user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalUserRequest'
+      responses:
+        '200':
+          description: Internal user created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPrincipalResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/internal-users/{id}:
+    put:
+      tags: [Admin identity]
+      operationId: updateInternalUser
+      summary: Update an internal user's profile, status, and roles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInternalUserRequest'
+      responses:
+        '200':
+          description: Internal user updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPrincipalResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/internal-users/{id}/reset-password:
+    post:
+      tags: [Admin identity]
+      operationId: resetInternalUserPassword
+      summary: Reset an internal user's password and revoke existing sessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetInternalUserPasswordRequest'
+      responses:
+        '200':
+          description: Password reset and sessions revoked
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /admin/internal-users/assignable:
     get:
       tags: [Admin identity]
@@ -1397,6 +1486,60 @@ components:
           type: string
           minLength: 8
           maxLength: 128
+    CreateInternalUserRequest:
+      type: object
+      required: [username, displayName, initialPassword, roles]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        mobile:
+          type: string
+          maxLength: 32
+        initialPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [ADMIN, SALES_MANAGER, SALES]
+    UpdateInternalUserRequest:
+      type: object
+      required: [displayName, enabled, roles]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        mobile:
+          type: string
+          maxLength: 32
+        enabled:
+          type: boolean
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [ADMIN, SALES_MANAGER, SALES]
+    ResetInternalUserPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
     AdminPrincipal:
       type: object
       required: [id, username, displayName, enabled, roles]
@@ -1407,6 +1550,9 @@ components:
           type: string
         displayName:
           type: string
+        mobile:
+          type: string
+          nullable: true
         enabled:
           type: boolean
         roles:

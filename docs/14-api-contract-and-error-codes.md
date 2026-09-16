@@ -159,6 +159,11 @@ MVP 管理列表使用页码分页：
 |---|---|---|
 | GET | `/admin/me` | 当前登录账号、显示名称和角色 |
 | GET | `/admin/internal-users/assignable` | 启用且可承接询价的销售人员列表 |
+| GET/POST | `/admin/internal-users` | 内部人员列表或创建账号 |
+| PUT | `/admin/internal-users/{id}` | 修改姓名、手机号、状态和角色 |
+| POST | `/admin/internal-users/{id}/reset-password` | 重置内部账号密码并撤销原会话 |
+
+销售经理只能创建或维护单一 `SALES` 角色账号；管理员可维护全部角色。销售人员访问询价和报价时，后端按当前账号是否为主负责人或备用负责人执行数据范围校验，不能依赖前端隐藏实现权限控制。
 
 ### 6.1 内容与供应
 
