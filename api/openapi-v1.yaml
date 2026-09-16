@@ -12,6 +12,7 @@ servers:
 tags:
   - name: Public
   - name: Authentication
+  - name: Admin identity
   - name: Admin inquiries
   - name: Admin quotations
 paths:
@@ -193,6 +194,68 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/token/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshAdminSession
+      summary: Rotate an internal access and refresh token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Rotated authentication tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/admin/logout:
+    post:
+      tags: [Authentication]
+      operationId: logoutAdmin
+      summary: Revoke the current internal session
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Session revoked
+  /admin/me:
+    get:
+      tags: [Admin identity]
+      operationId: getCurrentInternalUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current internal user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPrincipalResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /admin/internal-users/assignable:
+    get:
+      tags: [Admin identity]
+      operationId: listAssignableInternalUsers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Enabled sales users eligible for assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPrincipalListResponse'
   /admin/inquiries:
     get:
       tags: [Admin inquiries]
@@ -611,7 +674,7 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      bearerFormat: opaque
     SecureAccessToken:
       type: apiKey
       in: header
@@ -1336,32 +1399,35 @@ components:
           maxLength: 128
     AdminPrincipal:
       type: object
-      required: [id, displayName, roles, permissions]
+      required: [id, username, displayName, enabled, roles]
       properties:
         id:
           $ref: '#/components/schemas/SnowflakeId'
+        username:
+          type: string
         displayName:
           type: string
+        enabled:
+          type: boolean
         roles:
-          type: array
-          items:
-            type: string
-        permissions:
           type: array
           items:
             type: string
     AdminTokenData:
       type: object
-      required: [accessToken, accessTokenExpiresAt, refreshToken, principal]
+      required: [accessToken, refreshToken, accessExpiresAt, refreshExpiresAt, user]
       properties:
         accessToken:
           type: string
-        accessTokenExpiresAt:
+        accessExpiresAt:
           type: string
           format: date-time
         refreshToken:
           type: string
-        principal:
+        refreshExpiresAt:
+          type: string
+          format: date-time
+        user:
           $ref: '#/components/schemas/AdminPrincipal'
     AdminLoginResponse:
       type: object
@@ -1668,15 +1734,13 @@ components:
           format: date-time
     QuotationApprovalRequest:
       type: object
-      required: [approved, approverUserId]
+      required: [approved]
       properties:
         approved:
           type: boolean
         comment:
           type: string
           maxLength: 1000
-        approverUserId:
-          $ref: '#/components/schemas/SnowflakeId'
     QuotationResponse:
       type: object
       required: [code, message, data, requestId]
@@ -1703,6 +1767,34 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Quotation'
+        requestId:
+          type: string
+    AdminPrincipalResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AdminPrincipal'
+        requestId:
+          type: string
+    AdminPrincipalListResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPrincipal'
         requestId:
           type: string
     CustomerQuotationFeedbackRequest:

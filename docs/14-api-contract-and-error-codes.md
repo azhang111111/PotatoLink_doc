@@ -99,6 +99,8 @@ MVP 管理列表使用页码分页：
 
 管理后台登录成功后获得短期访问令牌和可刷新令牌。每个 `/admin` 接口同时校验账号状态、角色权限和必要的数据范围。
 
+访问令牌采用不可预测的随机值并通过 `Authorization: Bearer <token>` 传递；服务端只保存令牌哈希。访问令牌默认 30 分钟，刷新令牌默认 7 天。刷新时轮换访问令牌和刷新令牌并撤销旧会话。销售经理和管理员可以分配询价、审批报价；销售账号不能执行这两类管理操作。
+
 ### 3.2 微信客户
 
 小程序把微信临时登录 `code` 发送给 `POST /auth/wechat/login`。后端与微信服务交换身份后创建或关联客户，不接收前端自行声明的 `openid` 作为可信身份。
@@ -137,6 +139,7 @@ MVP 管理列表使用页码分页：
 | POST | `/auth/wechat/login` | 微信临时 code 登录或关联客户 |
 | POST | `/auth/admin/login` | 内部账号登录 |
 | POST | `/auth/token/refresh` | 刷新内部访问令牌 |
+| POST | `/auth/admin/logout` | 撤销当前内部会话 |
 | POST | `/auth/email-codes` | 向安全链接关联邮箱发送验证码 |
 | POST | `/auth/email-codes/verify` | 验证后建立短期安全会话 |
 | GET | `/secure/quotations/{quotationNo}` | 查看指定报价当前授权版本 |
@@ -149,6 +152,13 @@ MVP 管理列表使用页码分页：
 客户接受报价时，后端必须重新校验版本状态、有效期、客户授权和幂等键。当前阶段先将报价版本更新为 `ACCEPTED` 并记录反馈和审计；订单模块交付后，再由同一动作原子创建 `PENDING_LOCK` 订单及 `PENDING_CONFIRMATION` 占用任务，不直接扣减库存。
 
 ## 6. 管理接口
+
+### 6.0 当前账号与人员
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/admin/me` | 当前登录账号、显示名称和角色 |
+| GET | `/admin/internal-users/assignable` | 启用且可承接询价的销售人员列表 |
 
 ### 6.1 内容与供应
 

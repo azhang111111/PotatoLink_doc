@@ -105,6 +105,20 @@ erDiagram
 
 配套表：`iam_role`、`iam_permission`、`iam_user_role`、`iam_role_permission`。成本、毛利、完整文件和导出权限必须独立配置，不能只依赖“是否管理员”。
 
+### 5.1.1 `iam_auth_session`
+
+内部登录使用密码学安全的随机访问令牌和刷新令牌，数据库只保存 SHA-256 哈希，不保存令牌明文。访问令牌默认 30 分钟，刷新令牌默认 7 天；刷新时撤销旧会话并轮换两个令牌，退出登录、账号禁用或安全事件均可提前撤销会话。
+
+| 字段 | 类型/约束 | 说明 |
+|---|---|---|
+| `id` | BIGINT PK | 19 位雪花 ID |
+| `user_id` | BIGINT FK | 内部账号 |
+| `access_token_hash` | CHAR(64) UNIQUE | 访问令牌哈希 |
+| `refresh_token_hash` | CHAR(64) UNIQUE | 刷新令牌哈希 |
+| `access_expires_at` | TIMESTAMPTZ | 访问令牌过期时间 |
+| `refresh_expires_at` | TIMESTAMPTZ | 刷新令牌过期时间 |
+| `revoked_at` | TIMESTAMPTZ NULL | 会话撤销时间 |
+
 ### 5.2 `crm_customer`
 
 | 字段 | 类型/约束 | 说明 |
