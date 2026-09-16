@@ -304,6 +304,187 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminSupplyBatchResponse'
+  /admin/supply-batches/{id}/documents:
+    get:
+      tags: [Admin supply]
+      operationId: listSupplyBatchDocuments
+      summary: List versioned images, reports, and certificates for a batch
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Batch documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyDocumentListResponse'
+    post:
+      tags: [Admin supply]
+      operationId: uploadSupplyBatchDocument
+      summary: Upload an original file and optional redacted preview to object storage
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SupplyDocumentUploadRequest'
+      responses:
+        '200':
+          description: Document stored pending quality review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyDocumentResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/supply-documents/{id}/review:
+    post:
+      tags: [Admin supply]
+      operationId: reviewSupplyDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplyBatchReviewRequest'
+      responses:
+        '200':
+          description: Document review recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyDocumentResponse'
+  /admin/supply-documents/{id}/access-grants:
+    post:
+      tags: [Admin supply]
+      operationId: createSupplyDocumentAccessGrant
+      summary: Create a time-limited customer preview or transaction file link
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentAccessGrantRequest'
+      responses:
+        '200':
+          description: One-time visible access token and URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentAccessGrantResponse'
+  /public/traceability/{traceCode}:
+    get:
+      tags: [Public]
+      operationId: getPublicBatchTraceability
+      summary: Get a published batch with verified document summaries
+      parameters:
+        - name: traceCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public traceability view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyTraceabilityResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /public/traceability/{traceCode}/qr-code:
+    get:
+      tags: [Public]
+      operationId: getPublicBatchQrCode
+      parameters:
+        - name: traceCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: QR code pointing to the public traceability page
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+  /public/traceability/{traceCode}/images/{documentId}:
+    get:
+      tags: [Public]
+      operationId: getVerifiedBatchImage
+      parameters:
+        - name: traceCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+      responses:
+        '200':
+          description: Verified public batch image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+  /admin/supply-documents/{id}/content:
+    get:
+      tags: [Admin supply]
+      operationId: downloadAdminSupplyDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Original file stream for authorized internal staff
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /secure/supply-documents/{id}/content:
+    get:
+      tags: [Secure]
+      operationId: downloadAuthorizedSupplyDocument
+      summary: Download a redacted preview or full file according to an access grant
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authorized file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /public/inquiries:
     post:
       tags: [Public]
@@ -1583,6 +1764,204 @@ components:
         comment:
           type: string
           maxLength: 500
+    SupplyDocumentType:
+      type: string
+      enum: [BATCH_IMAGE, QUALITY_REPORT, CERTIFICATE, PHYTOSANITARY_CERTIFICATE]
+    DocumentAccessLevel:
+      type: string
+      enum: [PUBLIC_SUMMARY, CUSTOMER_PREVIEW, TRANSACTION_AUTHORIZED]
+    DocumentReviewStatus:
+      type: string
+      enum: [PENDING, VERIFIED, REJECTED]
+    SupplyDocumentUploadRequest:
+      type: object
+      required: [documentType, title, accessLevel, file]
+      properties:
+        documentType:
+          $ref: '#/components/schemas/SupplyDocumentType'
+        title:
+          type: string
+          maxLength: 200
+        issuer:
+          type: string
+          maxLength: 200
+        issuedAt:
+          type: string
+          format: date
+        expiresAt:
+          type: string
+          format: date
+        accessLevel:
+          $ref: '#/components/schemas/DocumentAccessLevel'
+        file:
+          type: string
+          format: binary
+        previewFile:
+          type: string
+          format: binary
+          description: Required for CUSTOMER_PREVIEW documents other than batch images.
+    AdminSupplyDocument:
+      type: object
+      required:
+        [id, batchId, documentType, title, accessLevel, reviewStatus, versionNo,
+         originalFileName, mimeType, byteSize, previewAvailable, createdAt, downloadUrl]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchId:
+          $ref: '#/components/schemas/SnowflakeId'
+        documentType:
+          $ref: '#/components/schemas/SupplyDocumentType'
+        title:
+          type: string
+        issuer:
+          type: string
+        issuedAt:
+          type: string
+          format: date
+        expiresAt:
+          type: string
+          format: date
+        accessLevel:
+          $ref: '#/components/schemas/DocumentAccessLevel'
+        reviewStatus:
+          $ref: '#/components/schemas/DocumentReviewStatus'
+        reviewComment:
+          type: string
+        versionNo:
+          type: integer
+        originalFileName:
+          type: string
+        mimeType:
+          type: string
+        byteSize:
+          type: integer
+          format: int64
+        previewAvailable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+    PublicSupplyDocument:
+      type: object
+      required: [id, documentType, title, reviewStatus, expired]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        documentType:
+          $ref: '#/components/schemas/SupplyDocumentType'
+        title:
+          type: string
+        issuer:
+          type: string
+        issuedAt:
+          type: string
+          format: date
+        expiresAt:
+          type: string
+          format: date
+        reviewStatus:
+          type: string
+          const: VERIFIED
+        expired:
+          type: boolean
+    SupplyTraceability:
+      type: object
+      required: [traceCode, batch, qrCodeUrl, images, documents]
+      properties:
+        traceCode:
+          type: string
+        batch:
+          $ref: '#/components/schemas/SupplyBatchDetail'
+        qrCodeUrl:
+          type: string
+        images:
+          type: array
+          items:
+            type: object
+            required: [id, title, contentUrl]
+            properties:
+              id:
+                $ref: '#/components/schemas/SnowflakeId'
+              title:
+                type: string
+              contentUrl:
+                type: string
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicSupplyDocument'
+    DocumentAccessGrantRequest:
+      type: object
+      required: [scope, customerReference, expiresAt]
+      properties:
+        scope:
+          type: string
+          enum: [PREVIEW, FULL]
+        customerReference:
+          type: string
+          maxLength: 200
+        expiresAt:
+          type: string
+          format: date-time
+    DocumentAccessGrant:
+      allOf:
+        - $ref: '#/components/schemas/DocumentAccessGrantRequest'
+        - type: object
+          required: [id, documentId, accessToken, accessUrl]
+          properties:
+            id:
+              $ref: '#/components/schemas/SnowflakeId'
+            documentId:
+              $ref: '#/components/schemas/SnowflakeId'
+            accessToken:
+              type: string
+            accessUrl:
+              type: string
+              format: uri
+    AdminSupplyDocumentResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/AdminSupplyDocument'
+        requestId: { type: string }
+    AdminSupplyDocumentListResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminSupplyDocument'
+        requestId: { type: string }
+    SupplyTraceabilityResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/SupplyTraceability'
+        requestId: { type: string }
+    DocumentAccessGrantResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/DocumentAccessGrant'
+        requestId: { type: string }
     AdminSupplyBatchResponse:
       type: object
       required: [code, message, data, requestId]
