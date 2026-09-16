@@ -137,6 +137,173 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /admin/supply-bases:
+    get:
+      tags: [Admin supply]
+      operationId: listSupplyBases
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Available production bases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplyBaseOptionListResponse'
+  /admin/supply-batches:
+    get:
+      tags: [Admin supply]
+      operationId: listAdminSupplyBatches
+      summary: List supply batches including internal inventory and workflow states
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: businessType
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessType'
+        - name: reviewStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/SupplyReviewStatus'
+        - name: publishStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/SupplyPublishStatus'
+      responses:
+        '200':
+          description: Internal supply batch list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchListResponse'
+    post:
+      tags: [Admin supply]
+      operationId: createSupplyBatch
+      summary: Create a draft commodity or seed potato batch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplyBatchUpsertRequest'
+      responses:
+        '200':
+          description: Draft batch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/supply-batches/{id}:
+    get:
+      tags: [Admin supply]
+      operationId: getAdminSupplyBatch
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Internal batch detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+    put:
+      tags: [Admin supply]
+      operationId: updateSupplyBatch
+      summary: Update a batch and return it to draft review status
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplyBatchUpsertRequest'
+      responses:
+        '200':
+          description: Batch updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/supply-batches/{id}/submit-review:
+    post:
+      tags: [Admin supply]
+      operationId: submitSupplyBatchReview
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Batch submitted for review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+  /admin/supply-batches/{id}/review:
+    post:
+      tags: [Admin supply]
+      operationId: reviewSupplyBatch
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplyBatchReviewRequest'
+      responses:
+        '200':
+          description: Review decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/supply-batches/{id}/publish:
+    post:
+      tags: [Admin supply]
+      operationId: publishSupplyBatch
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Approved batch published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
+  /admin/supply-batches/{id}/unpublish:
+    post:
+      tags: [Admin supply]
+      operationId: unpublishSupplyBatch
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Published batch taken offline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupplyBatchResponse'
   /public/inquiries:
     post:
       tags: [Public]
@@ -1232,6 +1399,216 @@ components:
           type: string
         data:
           $ref: '#/components/schemas/SupplyBatchDetail'
+        requestId:
+          type: string
+    SupplyReviewStatus:
+      type: string
+      enum: [DRAFT, PENDING, APPROVED, REJECTED]
+    SupplyPublishStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, OFFLINE]
+    SupplyBaseOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        name:
+          type: string
+    SupplyBaseOptionListResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupplyBaseOption'
+        requestId:
+          type: string
+    AdminSupplyBatch:
+      type: object
+      required:
+        - id
+        - batchNo
+        - businessType
+        - variety
+        - baseId
+        - baseName
+        - cropYear
+        - supplyStatus
+        - quantityVisibility
+        - packageTypeCode
+        - packageWeightKg
+        - allowSample
+        - onHandKg
+        - tempLockedKg
+        - committedKg
+        - availableKg
+        - reviewStatus
+        - publishStatus
+        - versionNo
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchNo:
+          type: string
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        variety:
+          $ref: '#/components/schemas/VarietySummary'
+        baseId:
+          $ref: '#/components/schemas/SnowflakeId'
+        baseName:
+          type: string
+        cropYear:
+          type: integer
+        harvestAt:
+          type: string
+          format: date
+        availableFrom:
+          type: string
+          format: date
+        supplyStatus:
+          $ref: '#/components/schemas/PublicSupplyStatus'
+        quantityVisibility:
+          type: string
+          enum: [RANGE, STATUS_ONLY, HIDDEN]
+        publicQuantityRange:
+          type: string
+        packageTypeCode:
+          type: string
+        packageWeightKg:
+          type: number
+        orderMoqKg:
+          type: number
+        lineMoqKg:
+          type: number
+        specification:
+          type: string
+        publicDescription:
+          type: string
+        allowSample:
+          type: boolean
+        onHandKg:
+          type: number
+        tempLockedKg:
+          type: number
+        committedKg:
+          type: number
+        availableKg:
+          type: number
+          readOnly: true
+        reviewStatus:
+          $ref: '#/components/schemas/SupplyReviewStatus'
+        publishStatus:
+          $ref: '#/components/schemas/SupplyPublishStatus'
+        versionNo:
+          type: integer
+    SupplyBatchUpsertRequest:
+      type: object
+      required:
+        - batchNo
+        - businessType
+        - varietyId
+        - baseId
+        - cropYear
+        - supplyStatus
+        - quantityVisibility
+        - packageTypeCode
+        - packageWeightKg
+        - allowSample
+        - onHandKg
+      properties:
+        batchNo:
+          type: string
+          maxLength: 100
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        varietyId:
+          $ref: '#/components/schemas/SnowflakeId'
+        baseId:
+          $ref: '#/components/schemas/SnowflakeId'
+        cropYear:
+          type: integer
+          minimum: 2020
+          maximum: 2100
+        harvestAt:
+          type: string
+          format: date
+        availableFrom:
+          type: string
+          format: date
+        supplyStatus:
+          $ref: '#/components/schemas/PublicSupplyStatus'
+        quantityVisibility:
+          type: string
+          enum: [RANGE, STATUS_ONLY, HIDDEN]
+        publicQuantityRange:
+          type: string
+          maxLength: 100
+        packageTypeCode:
+          type: string
+          maxLength: 100
+        packageWeightKg:
+          type: number
+          exclusiveMinimum: 0
+        orderMoqKg:
+          type: number
+          exclusiveMinimum: 0
+        lineMoqKg:
+          type: number
+          exclusiveMinimum: 0
+        specification:
+          type: string
+          maxLength: 300
+        publicDescription:
+          type: string
+          maxLength: 3000
+        allowSample:
+          type: boolean
+        onHandKg:
+          type: number
+          minimum: 0
+    SupplyBatchReviewRequest:
+      type: object
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        comment:
+          type: string
+          maxLength: 500
+    AdminSupplyBatchResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AdminSupplyBatch'
+        requestId:
+          type: string
+    AdminSupplyBatchListResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminSupplyBatch'
         requestId:
           type: string
     ContactInput:

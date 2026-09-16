@@ -175,12 +175,16 @@ MVP 管理列表使用页码分页：
 | GET/PUT | `/admin/varieties/{id}` | 品种详情或修改 |
 | POST | `/admin/varieties/{id}/submit-review` | 提交内容审核 |
 | POST | `/admin/varieties/{id}/publish` | 发布审核通过内容 |
+| GET | `/admin/supply-bases` | 批次表单可选择的已发布生产基地 |
 | GET/POST | `/admin/supply-batches` | 查询或创建供应批次 |
 | GET/PUT | `/admin/supply-batches/{id}` | 批次详情或修改 |
 | POST | `/admin/supply-batches/{id}/submit-review` | 提交批次审核 |
+| POST | `/admin/supply-batches/{id}/review` | 质量人员或管理员审核通过/驳回 |
 | POST | `/admin/supply-batches/{id}/publish` | 发布批次 |
 | POST | `/admin/supply-batches/{id}/unpublish` | 暂停或取消公开 |
 | POST | `/admin/supply-batches/{id}/inventory-adjustments` | 受控库存调整并写流水 |
+
+批次列表对全部内部账号可见，包含精确实物库存、临时锁定、正式占用和可售数量。创建、编辑、提交审核、发布和下架仅限管理员或仓储运营；审核仅限管理员或质量人员。任何批次资料编辑都会回到草稿状态，只有审核通过的批次可以发布，公开接口始终过滤未发布或已下架批次。
 
 ### 6.2 客户与询价
 
