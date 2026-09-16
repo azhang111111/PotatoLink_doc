@@ -140,13 +140,13 @@ MVP 管理列表使用页码分页：
 | POST | `/auth/email-codes` | 向安全链接关联邮箱发送验证码 |
 | POST | `/auth/email-codes/verify` | 验证后建立短期安全会话 |
 | GET | `/secure/quotations/{quotationNo}` | 查看指定报价当前授权版本 |
-| POST | `/secure/quotation-versions/{id}/accept` | 接受有效报价并创建待锁定订单 |
+| POST | `/secure/quotation-versions/{id}/accept` | 接受有效报价并记录客户反馈；待订单模块交付后再自动创建待锁定订单 |
 | POST | `/secure/quotation-versions/{id}/reject` | 拒绝报价 |
 | POST | `/secure/quotation-versions/{id}/request-revision` | 请求修改报价 |
 | GET | `/secure/orders/{orderNo}` | 查看授权订单和公开履约节点 |
 | GET | `/secure/files/{id}` | 获取授权文件的限时下载地址或文件流 |
 
-客户接受报价时，后端必须重新校验版本状态、有效期、客户授权和幂等键。成功仅生成 `PENDING_LOCK` 订单及 `PENDING_CONFIRMATION` 占用任务，不直接扣减库存。
+客户接受报价时，后端必须重新校验版本状态、有效期、客户授权和幂等键。当前阶段先将报价版本更新为 `ACCEPTED` 并记录反馈和审计；订单模块交付后，再由同一动作原子创建 `PENDING_LOCK` 订单及 `PENDING_CONFIRMATION` 占用任务，不直接扣减库存。
 
 ## 6. 管理接口
 
@@ -188,13 +188,13 @@ MVP 管理列表使用页码分页：
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | POST | `/admin/inquiries/{id}/quotations` | 从询价创建报价 |
-| GET | `/admin/quotations/{id}` | 报价及版本列表 |
-| POST | `/admin/quotations/{id}/versions` | 从当前内容创建新草稿版本 |
-| PUT | `/admin/quotation-versions/{id}` | 仅修改草稿版本 |
-| POST | `/admin/quotation-versions/{id}/submit-approval` | 计算规则并提交审批 |
-| POST | `/admin/quotation-versions/{id}/approve` | 审批通过 |
-| POST | `/admin/quotation-versions/{id}/reject` | 审批拒绝 |
-| POST | `/admin/quotation-versions/{id}/send` | 发布、生成 PDF 和客户安全链接 |
+| GET | `/admin/quotations/{id}` | 报价当前版本详情 |
+| GET | `/admin/quotations/{id}/versions` | 报价全部历史版本 |
+| POST | `/admin/quotations/{id}/versions` | 从驳回或客户调整请求创建新版本 |
+| POST | `/admin/quotations/{id}/approval` | 审批通过或驳回当前版本 |
+| POST | `/admin/quotations/{id}/send` | 标记当前版本已发送 |
+| POST | `/admin/quotations/{id}/secure-links` | 撤销旧链接并生成新的限时客户链接 |
+| POST | `/admin/quotations/{id}/secure-links/revoke` | 撤销该报价的有效客户链接 |
 | GET | `/admin/quotation-versions/{id}/pdf` | 获取报价 PDF |
 
 ### 6.4 库存与订单

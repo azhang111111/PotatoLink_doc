@@ -429,6 +429,44 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /admin/quotations/{id}/versions:
+    get:
+      tags: [Admin quotations]
+      operationId: listQuotationVersions
+      summary: List all immutable versions of a quotation
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Version history, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationListResponse'
+    post:
+      tags: [Admin quotations]
+      operationId: reviseQuotation
+      summary: Create a new version after rejection or a customer revision request
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotationCreateRequest'
+      responses:
+        '200':
+          description: New current version created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationResponse'
   /admin/quotations/{id}/send:
     post:
       tags: [Admin quotations]
@@ -450,6 +488,124 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /admin/quotations/{id}/secure-links:
+    post:
+      tags: [Admin quotations]
+      operationId: createQuotationSecureLink
+      summary: Revoke old links and create a time-limited customer link
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validityDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+      responses:
+        '200':
+          description: Secure link generated; the raw token is returned only in the URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecureQuotationLinkResponse'
+  /admin/quotations/{id}/secure-links/revoke:
+    post:
+      tags: [Admin quotations]
+      operationId: revokeQuotationSecureLinks
+      summary: Revoke all active links for a quotation
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Links revoked
+  /secure/quotations/{quotationNo}:
+    get:
+      tags: [Secure quotations]
+      operationId: viewSecureQuotation
+      summary: View the current customer-safe quotation version
+      security:
+        - SecureAccessToken: []
+      parameters:
+        - name: quotationNo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer quotation view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerQuotationViewResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /secure/quotation-versions/{id}/accept:
+    post:
+      tags: [Secure quotations]
+      operationId: acceptQuotation
+      summary: Accept the current valid quotation version
+      security:
+        - SecureAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerQuotationFeedbackRequest'
+      responses:
+        '200':
+          description: Customer decision recorded idempotently
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotationResponse'
+  /secure/quotation-versions/{id}/reject:
+    post:
+      tags: [Secure quotations]
+      operationId: rejectQuotation
+      summary: Reject the current quotation version
+      security:
+        - SecureAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerQuotationFeedbackRequest'
+      responses:
+        '200':
+          description: Customer decision recorded idempotently
+  /secure/quotation-versions/{id}/request-revision:
+    post:
+      tags: [Secure quotations]
+      operationId: requestQuotationRevision
+      summary: Ask the sales team for a revised quotation
+      security:
+        - SecureAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerQuotationFeedbackRequest'
+      responses:
+        '200':
+          description: Revision request recorded idempotently
 components:
   securitySchemes:
     BearerAuth:
@@ -1380,7 +1536,8 @@ components:
           type: string
     QuotationStatus:
       type: string
-      enum: [PENDING_APPROVAL, APPROVED, REJECTED, SENT]
+      enum: [PENDING_APPROVAL, APPROVED, REJECTED, SENT, ACCEPTED,
+        CUSTOMER_REJECTED, REVISION_REQUESTED, EXPIRED, SUPERSEDED]
     QuotationItemCreateRequest:
       type: object
       required: [varietyId, quantityKg, unitPrice, specification, packageDescription]
@@ -1439,6 +1596,7 @@ components:
       type: object
       required:
         - id
+        - versionId
         - quotationNo
         - inquiryId
         - inquiryNo
@@ -1456,6 +1614,8 @@ components:
         - createdAt
       properties:
         id:
+          $ref: '#/components/schemas/SnowflakeId'
+        versionId:
           $ref: '#/components/schemas/SnowflakeId'
         quotationNo:
           type: string
@@ -1543,5 +1703,101 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Quotation'
+        requestId:
+          type: string
+    CustomerQuotationFeedbackRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          maxLength: 2000
+    SecureQuotationLinkResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: object
+          required: [id, quotationId, quotationNo, accessUrl, expiresAt]
+          properties:
+            id:
+              $ref: '#/components/schemas/SnowflakeId'
+            quotationId:
+              $ref: '#/components/schemas/SnowflakeId'
+            quotationNo:
+              type: string
+            accessUrl:
+              type: string
+              format: uri
+            expiresAt:
+              type: string
+              format: date-time
+        requestId:
+          type: string
+    CustomerQuotationViewResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: object
+          required: [companyName, quotationNo, versionId, versionNo, businessType,
+            currency, totalAmount, validUntil, deliveryTerms, status, items, allowedActions]
+          properties:
+            companyName:
+              type: string
+            quotationNo:
+              type: string
+            versionId:
+              $ref: '#/components/schemas/SnowflakeId'
+            versionNo:
+              type: integer
+            businessType:
+              $ref: '#/components/schemas/BusinessType'
+            currency:
+              type: string
+            totalAmount:
+              $ref: '#/components/schemas/DecimalString'
+            validUntil:
+              type: string
+              format: date
+            deliveryTerms:
+              type: string
+            notes:
+              type: string
+            status:
+              $ref: '#/components/schemas/QuotationStatus'
+            items:
+              type: array
+              items:
+                type: object
+                required: [varietyName, quantityKg, unitPrice, amount, specification,
+                  packageDescription]
+                properties:
+                  varietyName:
+                    type: string
+                  quantityKg:
+                    $ref: '#/components/schemas/DecimalString'
+                  unitPrice:
+                    $ref: '#/components/schemas/DecimalString'
+                  amount:
+                    $ref: '#/components/schemas/DecimalString'
+                  specification:
+                    type: string
+                  packageDescription:
+                    type: string
+            allowedActions:
+              type: array
+              items:
+                type: string
+                enum: [ACCEPT, REQUEST_REVISION, REJECT]
         requestId:
           type: string
