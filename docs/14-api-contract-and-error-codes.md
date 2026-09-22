@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 | v0.1 |
-| 状态 | 技术设计草案，工程初始化前复核 |
+| 版本 | v0.2 |
+| 状态 | M4.1 订单协同契约，进入后端实现前复核 |
 | 基础路径 | `/api/v1` |
 | 数据格式 | HTTPS + JSON，文件流接口除外 |
 
@@ -143,13 +143,13 @@ MVP 管理列表使用页码分页：
 | POST | `/auth/email-codes` | 向安全链接关联邮箱发送验证码 |
 | POST | `/auth/email-codes/verify` | 验证后建立短期安全会话 |
 | GET | `/secure/quotations/{quotationNo}` | 查看指定报价当前授权版本 |
-| POST | `/secure/quotation-versions/{id}/accept` | 接受有效报价并记录客户反馈；待订单模块交付后再自动创建待锁定订单 |
+| POST | `/secure/quotation-versions/{id}/accept` | 接受有效报价、记录客户反馈，并原子创建唯一的待锁定订单 |
 | POST | `/secure/quotation-versions/{id}/reject` | 拒绝报价 |
 | POST | `/secure/quotation-versions/{id}/request-revision` | 请求修改报价 |
 | GET | `/secure/orders/{orderNo}` | 查看授权订单和公开履约节点 |
 | GET | `/secure/files/{id}` | 获取授权文件的限时下载地址或文件流 |
 
-客户接受报价时，后端必须重新校验版本状态、有效期、客户授权和幂等键。当前阶段先将报价版本更新为 `ACCEPTED` 并记录反馈和审计；订单模块交付后，再由同一动作原子创建 `PENDING_LOCK` 订单及 `PENDING_CONFIRMATION` 占用任务，不直接扣减库存。
+客户接受报价时，后端必须重新校验版本状态、有效期、客户授权、订单类型、起订量和幂等键。同一动作原子地将报价版本更新为 `ACCEPTED`、记录反馈和审计、创建唯一的 `PENDING_LOCK` 订单并返回订单概要。此时不创建库存占用、不修改库存；销售选择全部明细的真实批次后才建立临时锁定。
 
 ## 6. 管理接口
 
@@ -220,17 +220,19 @@ MVP 管理列表使用页码分页：
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/admin/inventory-reservations` | 待确认、临时锁定和正式占用列表 |
-| POST | `/admin/inventory-reservations/{id}/confirm-temp-lock` | 原子确认临时锁定 |
-| POST | `/admin/inventory-reservations/{id}/commit` | 合同或定金确认后转正式占用 |
-| POST | `/admin/inventory-reservations/{id}/release` | 释放未履约占用 |
-| POST | `/admin/inventory-reservations/{id}/fulfill` | 出库并扣减实物库存 |
 | GET | `/admin/orders` | 订单列表 |
 | GET | `/admin/orders/{id}` | 订单、分配、合同和履约详情 |
-| POST | `/admin/orders/{id}/confirm` | 确认合同/定金及订单 |
+| POST | `/admin/orders/{id}/lock` | 为全部明细选择批次并原子建立临时锁定 |
+| POST | `/admin/orders/{id}/release-lock` | 人工释放临时锁定并回到待锁定状态 |
+| POST | `/admin/orders/{id}/confirm` | 确认合同或定金并将临时锁定转正式占用 |
 | POST | `/admin/orders/{id}/suspend` | 暂停订单并记录原因 |
+| POST | `/admin/orders/{id}/resume` | 恢复到暂停前状态 |
 | POST | `/admin/orders/{id}/cancel` | 取消并释放未履约库存 |
 | POST | `/admin/orders/{id}/events` | 新增履约节点 |
+| POST | `/admin/orders/{id}/secure-links` | 撤销旧链接并生成限时客户订单链接 |
+| POST | `/admin/orders/{id}/secure-links/revoke` | 撤销订单的有效客户链接 |
+
+M4 第一版要求锁定请求一次提交整单全部明细，每条明细恰好选择一个批次。锁定成功后订单进入 `TEMP_LOCKED`；任一批次不可用、品种不符或库存不足时整次事务回滚，订单保持 `PENDING_LOCK`。
 
 ### 6.5 样品、文件和运营
 
@@ -346,6 +348,10 @@ MVP 管理列表使用页码分页：
 | `INVENTORY_INSUFFICIENT` | 409 | 一个或多个批次可售库存不足 |
 | `INVENTORY_RESERVATION_EXPIRED` | 409 | 临时锁定已经失效 |
 | `INVENTORY_RESERVATION_CONFLICT` | 409 | 占用已被其他操作改变 |
+| `ORDER_ALREADY_EXISTS` | 409 | 当前报价版本已经生成订单 |
+| `ORDER_ALLOCATION_INVALID` | 422 | 锁定请求未完整覆盖订单明细或分配数量不一致 |
+| `ORDER_BATCH_MISMATCH` | 422 | 订单明细与所选批次的业务类型或品种不一致 |
+| `ORDER_LOCK_DEADLINE_EXCEEDED` | 409 | 待锁定处理时限已超过，需要人工确认后重试 |
 | `ORDER_STATUS_INVALID` | 409 | 订单状态不允许当前动作 |
 | `ORDER_ACCESS_DENIED` | 403 | 当前安全会话无权查看订单 |
 | `ROUTE_NOT_ACTIVE` | 422 | 所选路线未启用 |

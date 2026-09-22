@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: PotatoLink API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     PotatoLink 中俄薯贸 MVP API 契约草案。
-    本文件覆盖“公开展示—供应—询价—后台跟进—报价审批”M2 切片。
+    本文件覆盖公开展示、供应批次、询价报价、订单库存锁定和履约协同。
     所有雪花 ID、金额和重量在 JSON 中均使用字符串。
 servers:
   - url: http://localhost:8080/api/v1
@@ -15,6 +15,8 @@ tags:
   - name: Admin identity
   - name: Admin inquiries
   - name: Admin quotations
+  - name: Admin orders
+  - name: Secure orders
 paths:
   /public/company:
     get:
@@ -1059,17 +1061,22 @@ paths:
         - $ref: '#/components/parameters/SnowflakeIdPath'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CustomerQuotationFeedbackRequest'
+              $ref: '#/components/schemas/QuotationAcceptRequest'
       responses:
         '200':
-          description: Customer decision recorded idempotently
+          description: Customer decision and unique pending-lock order created idempotently
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/QuotationResponse'
+                $ref: '#/components/schemas/QuotationAcceptanceResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
   /secure/quotation-versions/{id}/reject:
     post:
       tags: [Secure quotations]
@@ -1106,6 +1113,286 @@ paths:
       responses:
         '200':
           description: Revision request recorded idempotently
+  /admin/orders:
+    get:
+      tags: [Admin orders]
+      operationId: listAdminOrders
+      summary: List orders visible to the current internal user
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: businessType
+          in: query
+          schema:
+            $ref: '#/components/schemas/BusinessType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: ownerUserId
+          in: query
+          schema:
+            $ref: '#/components/schemas/SnowflakeId'
+      responses:
+        '200':
+          description: Order page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/orders/{id}:
+    get:
+      tags: [Admin orders]
+      operationId: getAdminOrder
+      summary: Get order, allocation, inventory reservation, route, and event detail
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/orders/{id}/lock:
+    post:
+      tags: [Admin orders]
+      operationId: lockOrderInventory
+      summary: Atomically assign one batch to every order item and create 24-hour locks
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderLockRequest'
+      responses:
+        '200':
+          description: All order items locked atomically
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /admin/orders/{id}/release-lock:
+    post:
+      tags: [Admin orders]
+      operationId: releaseOrderInventoryLock
+      summary: Release all temporary locks and return the order to pending lock
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderReasonRequest'
+      responses:
+        '200':
+          description: Temporary locks released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/orders/{id}/confirm:
+    post:
+      tags: [Admin orders]
+      operationId: confirmOrder
+      summary: Confirm contract or deposit and convert temporary locks to committed inventory
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderConfirmRequest'
+      responses:
+        '200':
+          description: Order confirmed and inventory committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/orders/{id}/suspend:
+    post:
+      tags: [Admin orders]
+      operationId: suspendOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderReasonRequest'
+      responses:
+        '200':
+          description: Order suspended without silently releasing inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+  /admin/orders/{id}/resume:
+    post:
+      tags: [Admin orders]
+      operationId: resumeOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Order restored to its audited pre-suspension state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+  /admin/orders/{id}/cancel:
+    post:
+      tags: [Admin orders]
+      operationId: cancelOrder
+      summary: Cancel a pre-shipment order and release all unfulfilled inventory
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderReasonRequest'
+      responses:
+        '200':
+          description: Order cancelled and unfulfilled inventory released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/orders/{id}/events:
+    post:
+      tags: [Admin orders]
+      operationId: createOrderEvent
+      summary: Add a fulfillment event and let the server derive any order status transition
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderEventCreateRequest'
+      responses:
+        '200':
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/orders/{id}/secure-links:
+    post:
+      tags: [Admin orders]
+      operationId: createOrderSecureLink
+      summary: Revoke old order links and create a time-limited customer link
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validityDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+      responses:
+        '200':
+          description: Secure order link generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSecureLinkResponse'
+  /admin/orders/{id}/secure-links/revoke:
+    post:
+      tags: [Admin orders]
+      operationId: revokeOrderSecureLinks
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SnowflakeIdPath'
+      responses:
+        '200':
+          description: Active order links revoked
+  /secure/orders/{orderNo}:
+    get:
+      tags: [Secure orders]
+      operationId: viewSecureOrder
+      summary: View the authorized customer-safe order and public fulfillment events
+      security:
+        - SecureAccessToken: []
+      parameters:
+        - name: orderNo
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Customer order view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrderViewResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -1284,6 +1571,10 @@ components:
         - INVENTORY_INSUFFICIENT
         - INVENTORY_RESERVATION_EXPIRED
         - INVENTORY_RESERVATION_CONFLICT
+        - ORDER_ALREADY_EXISTS
+        - ORDER_ALLOCATION_INVALID
+        - ORDER_BATCH_MISMATCH
+        - ORDER_LOCK_DEADLINE_EXCEEDED
         - ORDER_STATUS_INVALID
         - ORDER_ACCESS_DENIED
         - ROUTE_NOT_ACTIVE
@@ -2709,6 +3000,16 @@ components:
         comment:
           type: string
           maxLength: 2000
+    QuotationAcceptRequest:
+      type: object
+      required: [orderType]
+      properties:
+        orderType:
+          $ref: '#/components/schemas/OrderType'
+          description: Commodity quotations require COMMODITY_STANDARD; seed quotations require SEED_TRIAL or SEED_STANDARD.
+        comment:
+          type: string
+          maxLength: 2000
     SecureQuotationLinkResponse:
       type: object
       required: [code, message, data, requestId]
@@ -2797,5 +3098,518 @@ components:
               items:
                 type: string
                 enum: [ACCEPT, REQUEST_REVISION, REJECT]
+        requestId:
+          type: string
+    OrderType:
+      type: string
+      enum: [COMMODITY_STANDARD, SEED_TRIAL, SEED_STANDARD]
+    OrderStatus:
+      type: string
+      enum:
+        - PENDING_LOCK
+        - TEMP_LOCKED
+        - CONFIRMED
+        - FULFILLING
+        - SHIPPED
+        - DELIVERED
+        - COMPLETED
+        - SUSPENDED
+        - CANCELLED
+    InventoryReservationStatus:
+      type: string
+      enum: [TEMP_LOCKED, COMMITTED, FULFILLED, EXPIRED, RELEASED]
+    OrderEventType:
+      type: string
+      enum:
+        - ORDER_CREATED
+        - INVENTORY_LOCKED
+        - INVENTORY_LOCK_RELEASED
+        - ORDER_CONFIRMED
+        - FULFILLMENT_STARTED
+        - SORTING_PACKING
+        - INSPECTION
+        - READY_TO_LOAD
+        - SHIPPED
+        - ARRIVED_PORT
+        - DOCUMENT_CHECK
+        - EXITED_BORDER
+        - IN_TRANSIT
+        - ARRIVED_DESTINATION
+        - DELIVERED
+        - COMPLETED
+        - SUSPENDED
+        - RESUMED
+        - CANCELLED
+        - EXCEPTION
+    OrderAllocationInput:
+      type: object
+      required: [orderItemId, batchId]
+      properties:
+        orderItemId:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchId:
+          $ref: '#/components/schemas/SnowflakeId'
+    OrderLockRequest:
+      type: object
+      required: [allocations]
+      properties:
+        allocations:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: Must contain every order item exactly once. Quantity is always copied from the immutable order item.
+          items:
+            $ref: '#/components/schemas/OrderAllocationInput'
+    OrderConfirmRequest:
+      type: object
+      required: [confirmationType, reference]
+      properties:
+        confirmationType:
+          type: string
+          enum: [CONTRACT, DEPOSIT]
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Contract number or deposit receipt reference; never a raw payment credential.
+        comment:
+          type: string
+          maxLength: 1000
+    OrderReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    OrderEventCreateRequest:
+      type: object
+      required: [eventType, occurredAt, titleZhCn, customerVisible]
+      properties:
+        eventType:
+          $ref: '#/components/schemas/OrderEventType'
+        occurredAt:
+          type: string
+          format: date-time
+        expectedAt:
+          type: string
+          format: date-time
+        titleZhCn:
+          type: string
+          maxLength: 200
+        titleRuRu:
+          type: string
+          maxLength: 300
+        descriptionZhCn:
+          type: string
+          maxLength: 2000
+        descriptionRuRu:
+          type: string
+          maxLength: 3000
+        customerVisible:
+          type: boolean
+        vehicleInformation:
+          type: string
+          maxLength: 500
+    OrderReservation:
+      type: object
+      required: [id, batchId, quantityKg, status, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchId:
+          $ref: '#/components/schemas/SnowflakeId'
+        quantityKg:
+          $ref: '#/components/schemas/DecimalString'
+        status:
+          $ref: '#/components/schemas/InventoryReservationStatus'
+        expiresAt:
+          type: string
+          format: date-time
+        committedAt:
+          type: string
+          format: date-time
+        fulfilledAt:
+          type: string
+          format: date-time
+        releasedAt:
+          type: string
+          format: date-time
+        releaseReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    OrderAllocation:
+      type: object
+      required: [id, batchId, batchNo, allocatedKg, status, reservation]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchId:
+          $ref: '#/components/schemas/SnowflakeId'
+        batchNo:
+          type: string
+        allocatedKg:
+          $ref: '#/components/schemas/DecimalString'
+        status:
+          type: string
+          enum: [ACTIVE, RELEASED, FULFILLED]
+        releasedAt:
+          type: string
+          format: date-time
+        reservation:
+          $ref: '#/components/schemas/OrderReservation'
+    OrderItem:
+      type: object
+      required:
+        - id
+        - lineNo
+        - varietyId
+        - varietyName
+        - quantityKg
+        - unitPrice
+        - amount
+        - specification
+        - packageDescription
+        - allocationHistory
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        lineNo:
+          type: integer
+          minimum: 1
+        varietyId:
+          $ref: '#/components/schemas/SnowflakeId'
+        varietyName:
+          type: string
+        quantityKg:
+          $ref: '#/components/schemas/DecimalString'
+        unitPrice:
+          $ref: '#/components/schemas/DecimalString'
+        amount:
+          $ref: '#/components/schemas/DecimalString'
+        specification:
+          type: string
+        packageDescription:
+          type: string
+        currentAllocation:
+          $ref: '#/components/schemas/OrderAllocation'
+        allocationHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderAllocation'
+    CustomerOrderItem:
+      type: object
+      required:
+        - lineNo
+        - varietyName
+        - quantityKg
+        - unitPrice
+        - amount
+        - specification
+        - packageDescription
+      properties:
+        lineNo:
+          type: integer
+          minimum: 1
+        varietyName:
+          type: string
+        quantityKg:
+          $ref: '#/components/schemas/DecimalString'
+        unitPrice:
+          $ref: '#/components/schemas/DecimalString'
+        amount:
+          $ref: '#/components/schemas/DecimalString'
+        specification:
+          type: string
+        packageDescription:
+          type: string
+        traceCode:
+          type: string
+          description: Returned only after a verified batch has been assigned and is safe to expose.
+    OrderRouteSnapshot:
+      type: object
+      required: [fulfillmentMode, destinationCountryCode, responsibilityEnd]
+      properties:
+        fulfillmentMode:
+          type: string
+          enum: [BASE_PICKUP, ASSISTED_TO_PORT, CUSTOM]
+        departureBase:
+          type: string
+        handoverPoint:
+          type: string
+        exitPort:
+          type: string
+        transitCountries:
+          type: array
+          items:
+            type: string
+        destinationCountryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        destinationCity:
+          type: string
+        responsibilityEnd:
+          type: string
+        referenceFreightAmount:
+          $ref: '#/components/schemas/DecimalString'
+        referenceFreightCurrency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        referenceFreightValidUntil:
+          type: string
+          format: date
+        notes:
+          type: string
+    OrderEvent:
+      type: object
+      required: [id, eventType, occurredAt, title, customerVisible, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        eventType:
+          $ref: '#/components/schemas/OrderEventType'
+        occurredAt:
+          type: string
+          format: date-time
+        expectedAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+        customerVisible:
+          type: boolean
+        vehicleInformation:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      required:
+        - id
+        - orderNo
+        - quotationId
+        - quotationVersionId
+        - inquiryId
+        - customerId
+        - businessType
+        - orderType
+        - currency
+        - totalAmount
+        - deliveryTerms
+        - status
+        - lockDueAt
+        - acceptedAt
+        - items
+        - events
+        - versionNo
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/SnowflakeId'
+        orderNo:
+          type: string
+        quotationId:
+          $ref: '#/components/schemas/SnowflakeId'
+        quotationVersionId:
+          $ref: '#/components/schemas/SnowflakeId'
+        inquiryId:
+          $ref: '#/components/schemas/SnowflakeId'
+        customerId:
+          $ref: '#/components/schemas/SnowflakeId'
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        orderType:
+          $ref: '#/components/schemas/OrderType'
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        totalAmount:
+          $ref: '#/components/schemas/DecimalString'
+        deliveryTerms:
+          type: string
+        notes:
+          type: string
+        ownerUserId:
+          $ref: '#/components/schemas/SnowflakeId'
+        backupUserId:
+          $ref: '#/components/schemas/SnowflakeId'
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        statusReason:
+          type: string
+        lockDueAt:
+          type: string
+          format: date-time
+        contractNo:
+          type: string
+        acceptedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type: string
+          format: date-time
+        versionNo:
+          type: integer
+          minimum: 0
+        route:
+          $ref: '#/components/schemas/OrderRouteSnapshot'
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderEvent'
+        createdAt:
+          type: string
+          format: date-time
+    CustomerOrderView:
+      type: object
+      required:
+        - orderNo
+        - businessType
+        - orderType
+        - currency
+        - totalAmount
+        - deliveryTerms
+        - status
+        - items
+        - events
+      properties:
+        orderNo:
+          type: string
+        businessType:
+          $ref: '#/components/schemas/BusinessType'
+        orderType:
+          $ref: '#/components/schemas/OrderType'
+        currency:
+          type: string
+        totalAmount:
+          $ref: '#/components/schemas/DecimalString'
+        deliveryTerms:
+          type: string
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        route:
+          $ref: '#/components/schemas/OrderRouteSnapshot'
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CustomerOrderItem'
+        events:
+          type: array
+          description: Only events explicitly marked customer-visible are returned.
+          items:
+            $ref: '#/components/schemas/OrderEvent'
+    OrderResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Order'
+        requestId:
+          type: string
+    OrderPageResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: object
+          required: [items, page, pageSize, total]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Order'
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+        requestId:
+          type: string
+    CustomerOrderViewResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/CustomerOrderView'
+        requestId:
+          type: string
+    QuotationAcceptanceResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: object
+          required: [quotation, order]
+          properties:
+            quotation:
+              $ref: '#/components/schemas/Quotation'
+            order:
+              $ref: '#/components/schemas/Order'
+        requestId:
+          type: string
+    OrderSecureLinkResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code:
+          type: string
+          const: OK
+        message:
+          type: string
+        data:
+          type: object
+          required: [id, orderId, orderNo, accessUrl, expiresAt]
+          properties:
+            id:
+              $ref: '#/components/schemas/SnowflakeId'
+            orderId:
+              $ref: '#/components/schemas/SnowflakeId'
+            orderNo:
+              type: string
+            accessUrl:
+              type: string
+              format: uri
+            expiresAt:
+              type: string
+              format: date-time
         requestId:
           type: string
