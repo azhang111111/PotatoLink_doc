@@ -1478,6 +1478,7 @@ components:
       required:
         - id
         - batchNo
+        - traceCode
         - businessType
         - variety
         - supplyStatus
@@ -1487,6 +1488,9 @@ components:
           $ref: '#/components/schemas/SnowflakeId'
         batchNo:
           type: string
+        traceCode:
+          type: string
+          description: 对外稳定溯源码，不随后台批次信息调整而变化
         businessType:
           $ref: '#/components/schemas/BusinessType'
         variety:
