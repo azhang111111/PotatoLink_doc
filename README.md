@@ -38,6 +38,7 @@ PotatoLink 是面向俄罗斯市场的马铃薯贸易数字化项目，由佳秀
 | [数据库与状态机设计](docs/13-database-and-state-machine.md) | 核心表、数据约束、库存并发和业务状态流转 |
 | [API 契约与错误码](docs/14-api-contract-and-error-codes.md) | REST API 分组、接口清单、通用协议和错误码 |
 | [M4 订单协同规格](docs/15-m4-order-collaboration-spec.md) | 报价接受建单、库存锁定、订单状态、权限、安全访问和验收规则 |
+| [工程阅读与注释规范](docs/16-engineering-reading-and-comment-guide.md) | 代码模块入口、推荐阅读顺序、业务逻辑说明和注释要求 |
 
 ## 已确认的产品决策
 

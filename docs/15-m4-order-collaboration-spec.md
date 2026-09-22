@@ -155,3 +155,18 @@ fulfilled_kg += quantity_kg
 - Flyway V012 建立订单、订单明细、单批次分配、库存占用、路线快照、履约节点和订单安全访问结构。
 - 原有 Flyway 迁移不被修改。
 - 下一阶段可以直接按契约实现 Java 订单模块和前端订单工作台。
+
+## 10. M4.2 实现入口与阅读顺序
+
+后端订单核心已按以下顺序实现，阅读代码时不要直接从 PostgreSQL SQL 开始：
+
+1. `order/package-info.java`：模块职责、边界和推荐阅读路线。
+2. `AdminOrderController` 与 `SecureQuotationController`：内部操作入口和客户接受入口。
+3. `OrderContracts`：接受、锁定、释放、确认的输入约束。
+4. `OrderApplicationService`：订单类型、起订量、数据权限、完整分配校验和事务编排。
+5. `OrderRepository`：要求订单、占用、库存和流水原子变更的持久化边界。
+6. `PostgresOrderRepository`：批次稳定排序加锁、库存重算、分配/占用/流水落库。
+7. `DemoOrderRepository`：无数据库验收环境下的等价业务行为。
+8. `V012__orders_inventory_reservations_and_events.sql` 与订单 API 测试：数据约束和端到端证据。
+
+M4.2 的业务主线为：报价安全链接验权 → 校验当前版本/有效期/起订量 → 报价、询价和订单在同一事务内更新 → 整单选择批次 → 按批次 ID 排序加锁 → 全量校验库存 → 创建 24 小时临时占用 → 释放后保留历史分配，或在合同/定金确认后转正式占用。真实 PostgreSQL 并发与回滚场景继续在 M4.4 端到端联调中验证。
