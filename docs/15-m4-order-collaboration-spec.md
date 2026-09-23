@@ -170,3 +170,21 @@ fulfilled_kg += quantity_kg
 8. `V012__orders_inventory_reservations_and_events.sql` 与订单 API 测试：数据约束和端到端证据。
 
 M4.2 的业务主线为：报价安全链接验权 → 校验当前版本/有效期/起订量 → 报价、询价和订单在同一事务内更新 → 整单选择批次 → 按批次 ID 排序加锁 → 全量校验库存 → 创建 24 小时临时占用 → 释放后保留历史分配，或在合同/定金确认后转正式占用。真实 PostgreSQL 并发与回滚场景继续在 M4.4 端到端联调中验证。
+
+## 11. M4.3 履约时间线与客户订单页实现入口
+
+履约协同按以下顺序阅读，避免把“新增事件”误解为任意修改订单状态：
+
+1. `OrderContracts.EventCreateRequest`：双语节点、发生时间、客户可见性和车辆信息。
+2. `OrderApplicationService.addEvent`：角色范围与禁止伪造系统节点的规则。
+3. `OrderRepository.addEvent`：命名业务动作与原子持久化边界。
+4. `PostgresOrderRepository.addEvent`：节点到状态的映射；`SHIPPED` 同步完成实物库存、正式占用和履约数量转换。
+5. `SecureOrderService`：随机令牌、SHA-256 哈希、有效期、撤销和订单号绑定校验。
+6. `SecureOrderController` 与 `OrderSecureModels`：客户安全投影，只包含订单快照与客户可见事件。
+7. 后台 `App.vue` 订单抽屉：新增双语履约节点、生成/撤销客户链接、查看内部时间线。
+8. 客户端 `pages/order/track.vue`：俄中双语订单摘要、路线和履约时间线。
+
+本阶段状态推进规则：备货类节点把 `CONFIRMED` 推进到 `FULFILLING`；`SHIPPED` 仅允许从
+`FULFILLING` 进入并核销正式库存；运输过程节点保持 `SHIPPED`；`DELIVERED` 与 `COMPLETED`
+按顺序推进；`EXCEPTION` 只记录说明，不静默改变状态。系统创建、库存锁定/释放、订单确认、
+暂停/恢复和取消节点仍必须由各自专用业务动作产生。
