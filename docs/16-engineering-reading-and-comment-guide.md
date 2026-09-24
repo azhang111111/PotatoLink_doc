@@ -66,6 +66,8 @@
 
 后端建议顺序：`identity → catalog → supply → file → inquiry → quotation → order → notification`。其中 `common` 是横切基础能力，可在遇到认证、错误码、雪花 ID、分页等引用时按需阅读。
 
+品种双语内容线：先读 `catalog/package-info.java`，再读 `AdminVarietyLocalizationController → Contracts/Models → AdminVarietyLocalizationService → VarietyLocalizationRepository` 与 V015，最后读 `PublicCatalogService`、`PublicSupplyService` 的公开快照投影。后台入口与操作说明见前端 `apps/admin/src/README.md`，页面实现为 `VarietyLocalizationPanel.vue`。
+
 业务主线建议顺序：公开品种/批次 → 客户询价 → 内部分配与跟进 → 报价审批和发送 → 客户安全链接反馈 → 报价接受建单 → 批次临时锁定 → 合同或定金确认 → 履约节点和客户订单页。
 
 ## 6. 代码评审检查项
