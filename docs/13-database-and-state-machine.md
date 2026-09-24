@@ -397,6 +397,8 @@ VERIFIED → EXPIRED | REPLACED | REVOKED
 - `sys_outbox_event`：与业务事务同时写入的事件，提交后由后台任务可靠处理通知、PDF、超时和提醒。
 - `sys_job_lock`：避免多个实例重复执行报价过期、库存释放和文件到期任务。
 
+当前 M5 第一阶段以 `notify_task` 的唯一去重键承担通知专用事务 Outbox：询价、报价、订单更新与通知任务在同一数据库事务写入。`notify_attempt` 预留发送尝试记录；在渠道身份和服务配置就绪前，任务保持 `PENDING`，不得标记为已送达。通用 `sys_outbox_event` 留待 PDF 和其他异步消费者接入时建设。
+
 通知状态为 `PENDING`、`PROCESSING`、`SENT`、`FAILED_RETRYABLE`、`FAILED_FINAL`、`CANCELLED`。业务交易不能因为微信或邮件临时失败而回滚；失败进入重试和人工处理队列。
 
 ## 15. 系统配置、审计和成本

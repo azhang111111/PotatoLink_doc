@@ -64,7 +64,7 @@
 
 ## 5. PotatoLink 当前模块阅读顺序
 
-后端建议顺序：`identity → catalog → supply → file → inquiry → quotation → order`。其中 `common` 是横切基础能力，可在遇到认证、错误码、雪花 ID、分页等引用时按需阅读。
+后端建议顺序：`identity → catalog → supply → file → inquiry → quotation → order → notification`。其中 `common` 是横切基础能力，可在遇到认证、错误码、雪花 ID、分页等引用时按需阅读。
 
 业务主线建议顺序：公开品种/批次 → 客户询价 → 内部分配与跟进 → 报价审批和发送 → 客户安全链接反馈 → 报价接受建单 → 批次临时锁定 → 合同或定金确认 → 履约节点和客户订单页。
 
