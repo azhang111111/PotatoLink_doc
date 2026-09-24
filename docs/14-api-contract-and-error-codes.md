@@ -118,6 +118,7 @@ MVP 管理列表使用页码分页：
 | GET | `/public/company` | 企业品牌、简介和公开联系方式 |
 | GET | `/public/bases` | 已发布基地列表 |
 | GET | `/public/bases/{id}` | 基地详情和公开媒体 |
+| GET | `/public/catalog/profiles` | 当前已实现：仅返回企业/基地已审核发布的中俄文资料快照；未发布记录不返回 |
 | GET | `/public/varieties` | 品种列表与筛选 |
 | GET | `/public/varieties/{id}` | 品种详情、优缺点和适用用途 |
 | GET | `/public/supply-batches` | 公开供应列表，不含精确库存和内部价格 |
@@ -171,6 +172,13 @@ MVP 管理列表使用页码分页：
 |---|---|---|
 | GET/POST | `/admin/bases` | 查询或创建基地 |
 | GET/PUT | `/admin/bases/{id}` | 基地详情或修改 |
+| GET | `/admin/catalog/profiles` | 当前已实现：企业和基地资料及草稿/公开版本状态 |
+| POST | `/admin/catalog/profiles/companies`、`/admin/catalog/profiles/bases` | 当前已实现：管理员建立企业/基地基础记录 |
+| PUT | `/admin/catalog/profiles/{type}/{id}/draft` | 当前已实现：保存中俄文资料草稿，需传 `expectedVersion` |
+| POST | `/admin/catalog/profiles/{type}/{id}/submit-review`、`/review`、`/publish` | 当前已实现：另一人复核后由管理员发布；`type` 为 `COMPANY` 或 `BASE` |
+| GET/POST | `/admin/catalog/variety-sources` | 查询品种中文档案；管理员可新增未公开品种 |
+| PUT | `/admin/catalog/variety-sources/{id}/draft` | 保存中文草稿，需传 `expectedVersion` 与 `content`；封面只接受 `/static/images/` 静态路径 |
+| POST | `/admin/catalog/variety-sources/{id}/submit-review`、`/review`、`/publish` | 另一人复核后管理员发布；中文可翻译字段变化时同步撤销旧俄文版 |
 | GET/POST | `/admin/varieties` | 查询或创建品种 |
 | GET/PUT | `/admin/varieties/{id}` | 品种详情或修改 |
 | POST | `/admin/varieties/{id}/submit-review` | 提交内容审核 |
