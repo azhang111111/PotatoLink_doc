@@ -12,6 +12,7 @@ servers:
 tags:
   - name: Public
   - name: Authentication
+  - name: Customer account
   - name: Admin identity
   - name: Admin inquiries
   - name: Admin quotations
@@ -518,6 +519,181 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/customer/capabilities:
+    get:
+      tags: [Customer account]
+      operationId: getCustomerAuthCapabilities
+      summary: Check whether verified customer login is enabled
+      responses:
+        '200':
+          description: Feature availability, wrapped in the standard API response
+  /auth/customer/challenges:
+    post:
+      tags: [Customer account]
+      operationId: requestCustomerLoginChallenge
+      summary: Send a one-time code using the configured Aliyun channel
+      description: Phone must be a mainland China E.164 number; email is supported for H5. Test delivery is local-profile only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerContactRequest'
+      responses:
+        '200':
+          description: Accepted without revealing account existence
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/customer/sessions:
+    post:
+      tags: [Customer account]
+      operationId: loginCustomer
+      summary: Verify code and create or resume a customer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCodeRequest'
+      responses:
+        '200':
+          description: Customer access and refresh tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/customer/sessions/refresh:
+    post:
+      tags: [Customer account]
+      operationId: refreshCustomerSession
+      summary: Rotate both customer session tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New customer session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/customer/sessions/current:
+    delete:
+      tags: [Customer account]
+      operationId: logoutCustomer
+      summary: Revoke current customer session
+      security:
+        - BearerAuth: []
+      responses:
+        '200': { description: Session revoked }
+  /customer/me:
+    get:
+      tags: [Customer account]
+      operationId: getCustomerAccount
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account ID and verified contacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /customer/contacts:
+    post:
+      tags: [Customer account]
+      operationId: bindCustomerContact
+      summary: Bind another verified phone or email to the current account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCodeRequest'
+      responses:
+        '200': { description: Updated verified contacts }
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /customer/inquiries:
+    get:
+      tags: [Customer account]
+      operationId: listCustomerInquiries
+      security:
+        - BearerAuth: []
+      responses:
+        '200': { description: Up to 100 owned inquiry summaries, newest first }
+  /customer/orders:
+    get:
+      tags: [Customer account]
+      operationId: listCustomerOrders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Up to 100 owned order summaries, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrderListResponse'
+  /customer/orders/{orderNo}:
+    get:
+      tags: [Customer account]
+      operationId: getOwnedCustomerOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orderNo
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Customer-safe order projection; account ownership is checked server-side
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrderViewResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /customer/order-claims:
+    post:
+      tags: [Customer account]
+      operationId: claimCustomerOrder
+      summary: Claim an older order using a current, non-revoked secure link
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo, token]
+              properties:
+                orderNo: { type: string }
+                token: { type: string, description: Raw secure-link token; never log it }
+      responses:
+        '200': { description: Order is owned by this account }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /auth/admin/login:
     post:
       tags: [Authentication]
@@ -1499,6 +1675,76 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
   schemas:
+    CustomerContactRequest:
+      type: object
+      required: [kind, contact]
+      properties:
+        kind: { type: string, enum: [PHONE, EMAIL] }
+        contact: { type: string, maxLength: 254 }
+    CustomerCodeRequest:
+      allOf:
+        - $ref: '#/components/schemas/CustomerContactRequest'
+        - type: object
+          required: [code]
+          properties:
+            code: { type: string, pattern: '^[0-9]{6}$' }
+    CustomerAccount:
+      type: object
+      required: [id, contacts]
+      properties:
+        id: { $ref: '#/components/schemas/SnowflakeId' }
+        contacts:
+          type: array
+          items:
+            type: object
+            required: [kind, value]
+            properties:
+              kind: { type: string, enum: [PHONE, EMAIL] }
+              value: { type: string }
+    CustomerSession:
+      type: object
+      required: [accessToken, refreshToken, accessExpiresAt, account]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        accessExpiresAt: { type: string, format: date-time }
+        account: { $ref: '#/components/schemas/CustomerAccount' }
+    CustomerSessionResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        requestId: { type: string }
+        data: { $ref: '#/components/schemas/CustomerSession' }
+    CustomerAccountResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        requestId: { type: string }
+        data: { $ref: '#/components/schemas/CustomerAccount' }
+    CustomerOrderSummary:
+      type: object
+      required: [orderNo, businessType, status, currency, totalAmount, createdAt]
+      properties:
+        orderNo: { type: string }
+        businessType: { $ref: '#/components/schemas/BusinessType' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        currency: { type: string }
+        totalAmount: { $ref: '#/components/schemas/DecimalString' }
+        createdAt: { type: string, format: date-time }
+    CustomerOrderListResponse:
+      type: object
+      required: [code, message, data, requestId]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        requestId: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/CustomerOrderSummary' }
     SnowflakeId:
       type: string
       pattern: '^[1-9][0-9]{18}$'
