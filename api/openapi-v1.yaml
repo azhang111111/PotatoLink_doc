@@ -550,7 +550,7 @@ paths:
     post:
       tags: [Customer account]
       operationId: loginCustomer
-      summary: Verify code and create or resume a customer account
+      summary: Verify code and log in to an existing customer account only
       requestBody:
         required: true
         content:
@@ -566,6 +566,29 @@ paths:
                 $ref: '#/components/schemas/CustomerSessionResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Verified contact has no customer account (CUSTOMER_ACCOUNT_NOT_FOUND)
+  /auth/customer/registrations:
+    post:
+      tags: [Customer account]
+      operationId: registerCustomer
+      summary: Explicitly create a new account with one verified phone or email
+      description: A registered contact cannot create a second account. The account has exactly one login contact.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCodeRequest'
+      responses:
+        '200':
+          description: Customer access and refresh tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSessionResponse'
+        '409':
+          description: Contact already registered (CUSTOMER_CONTACT_REGISTERED)
   /auth/customer/sessions/refresh:
     post:
       tags: [Customer account]
@@ -606,30 +629,13 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: Account ID and verified contacts
+          description: Account ID and its single verified login contact
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CustomerAccountResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /customer/contacts:
-    post:
-      tags: [Customer account]
-      operationId: bindCustomerContact
-      summary: Bind another verified phone or email to the current account
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CustomerCodeRequest'
-      responses:
-        '200': { description: Updated verified contacts }
-        '409':
-          $ref: '#/components/responses/Conflict'
   /customer/inquiries:
     get:
       tags: [Customer account]
@@ -1690,17 +1696,15 @@ components:
             code: { type: string, pattern: '^[0-9]{6}$' }
     CustomerAccount:
       type: object
-      required: [id, contacts]
+      required: [id, contact]
       properties:
         id: { $ref: '#/components/schemas/SnowflakeId' }
-        contacts:
-          type: array
-          items:
-            type: object
-            required: [kind, value]
-            properties:
-              kind: { type: string, enum: [PHONE, EMAIL] }
-              value: { type: string }
+        contact:
+          type: object
+          required: [kind, value]
+          properties:
+            kind: { type: string, enum: [PHONE, EMAIL] }
+            value: { type: string }
     CustomerSession:
       type: object
       required: [accessToken, refreshToken, accessExpiresAt, account]
@@ -1788,6 +1792,8 @@ components:
         - TOKEN_EXPIRED
         - EMAIL_CODE_INVALID
         - EMAIL_CODE_EXPIRED
+        - CUSTOMER_ACCOUNT_NOT_FOUND
+        - CUSTOMER_CONTACT_REGISTERED
         - FORBIDDEN
         - DATA_SCOPE_FORBIDDEN
         - RESOURCE_NOT_FOUND
