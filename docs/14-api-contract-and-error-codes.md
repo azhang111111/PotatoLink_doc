@@ -80,7 +80,7 @@ MVP 管理列表使用页码分页：
 
 以下写操作必须携带 `Idempotency-Key`：
 
-- 游客提交询价。
+- 已登录客户提交询价。
 - 客户接受报价。
 - 创建订单或样品申请。
 - 确认、提交、释放或履约库存占用。
@@ -109,7 +109,7 @@ MVP 管理列表使用页码分页：
 
 ### 3.3 俄语 H5
 
-游客可浏览并提交询价。报价和订单通过限时安全链接进入；链接令牌通过请求头 `X-Secure-Access-Token` 传递。需要二次验证时，通过邮箱验证码换取短期访问会话。
+游客仅可浏览公开企业、品种和供应资料。客户须通过邮箱或已支持的手机号验证码注册/登录，才可提交询价、查看自己的询价/报价/订单及回应报价。限时安全链接仍作为额外凭证，令牌通过 `X-Secure-Access-Token` 传递；链接本身不代替客户登录和账号归属校验。俄方首期以邮箱验证码为主，真实对俄短信尚未接通。
 
 安全令牌必须使用密码学安全随机值，数据库只保存哈希。雪花 ID、报价编号和订单编号均不能替代授权令牌。
 
@@ -126,7 +126,7 @@ MVP 管理列表使用页码分页：
 | GET | `/public/supply-batches` | 公开供应列表，不含精确库存和内部价格 |
 | GET | `/public/supply-batches/{id}` | 公开批次详情 |
 | GET | `/public/trace/{batchNo}` | 批次公开溯源摘要 |
-| POST | `/public/inquiries` | 游客或已识别客户提交询价 |
+| POST | `/public/inquiries` | 已登录客户提交询价；联系字段必须包含该账号已验证的联系方式 |
 | POST | `/public/sample-requests` | 提交样品申请 |
 | POST | `/public/recommendations/commodity` | 商品薯规则选品 |
 | POST | `/public/recommendations/seed` | 种薯规则选品 |
@@ -145,11 +145,11 @@ MVP 管理列表使用页码分页：
 | POST | `/auth/admin/logout` | 撤销当前内部会话 |
 | POST | `/auth/email-codes` | 向安全链接关联邮箱发送验证码 |
 | POST | `/auth/email-codes/verify` | 验证后建立短期安全会话 |
-| GET | `/secure/quotations/{quotationNo}` | 查看指定报价当前授权版本 |
+| GET | `/secure/quotations/{quotationNo}` | 客户登录并持有效链接后查看当前授权报价版本 |
 | POST | `/secure/quotation-versions/{id}/accept` | 接受有效报价、记录客户反馈，并原子创建唯一的待锁定订单 |
 | POST | `/secure/quotation-versions/{id}/reject` | 拒绝报价 |
 | POST | `/secure/quotation-versions/{id}/request-revision` | 请求修改报价 |
-| GET | `/secure/orders/{orderNo}` | 查看授权订单和公开履约节点 |
+| GET | `/secure/orders/{orderNo}` | 客户登录并持有效链接后查看授权订单和公开履约节点 |
 | GET | `/secure/files/{id}` | 获取授权文件的限时下载地址或文件流 |
 
 客户接受报价时，后端必须重新校验版本状态、有效期、客户授权、订单类型、起订量和幂等键。同一动作原子地将报价版本更新为 `ACCEPTED`、记录反馈和审计、创建唯一的 `PENDING_LOCK` 订单并返回订单概要。此时不创建库存占用、不修改库存；销售选择全部明细的真实批次后才建立临时锁定。

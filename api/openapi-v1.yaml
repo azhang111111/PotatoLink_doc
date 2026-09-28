@@ -492,7 +492,9 @@ paths:
     post:
       tags: [Public]
       operationId: createPublicInquiry
-      summary: Submit a commodity or seed potato inquiry
+      summary: Submit a commodity or seed potato inquiry as a signed-in customer
+      security:
+        - CustomerBearerAuth: []
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -526,7 +528,21 @@ paths:
       summary: Check whether verified customer login is enabled
       responses:
         '200':
-          description: Feature availability, wrapped in the standard API response
+          description: Feature availability by channel, wrapped in the standard API response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string, enum: [OK] }
+                  data:
+                    type: object
+                    required: [enabled, mockEnabled, phoneEnabled, emailEnabled]
+                    properties:
+                      enabled: { type: boolean }
+                      mockEnabled: { type: boolean }
+                      phoneEnabled: { type: boolean }
+                      emailEnabled: { type: boolean }
   /auth/customer/challenges:
     post:
       tags: [Customer account]
@@ -1216,7 +1232,8 @@ paths:
       operationId: viewSecureQuotation
       summary: View the current customer-safe quotation version
       security:
-        - SecureAccessToken: []
+        - CustomerBearerAuth: []
+          SecureAccessToken: []
       parameters:
         - name: quotationNo
           in: path
@@ -1238,7 +1255,8 @@ paths:
       operationId: acceptQuotation
       summary: Accept the current valid quotation version
       security:
-        - SecureAccessToken: []
+        - CustomerBearerAuth: []
+          SecureAccessToken: []
       parameters:
         - $ref: '#/components/parameters/SnowflakeIdPath'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1265,7 +1283,8 @@ paths:
       operationId: rejectQuotation
       summary: Reject the current quotation version
       security:
-        - SecureAccessToken: []
+        - CustomerBearerAuth: []
+          SecureAccessToken: []
       parameters:
         - $ref: '#/components/parameters/SnowflakeIdPath'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1283,7 +1302,8 @@ paths:
       operationId: requestQuotationRevision
       summary: Ask the sales team for a revised quotation
       security:
-        - SecureAccessToken: []
+        - CustomerBearerAuth: []
+          SecureAccessToken: []
       parameters:
         - $ref: '#/components/parameters/SnowflakeIdPath'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1556,7 +1576,8 @@ paths:
       operationId: viewSecureOrder
       summary: View the authorized customer-safe order and public fulfillment events
       security:
-        - SecureAccessToken: []
+        - CustomerBearerAuth: []
+          SecureAccessToken: []
       parameters:
         - name: orderNo
           in: path
@@ -1581,6 +1602,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
+    CustomerBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque customer session
     SecureAccessToken:
       type: apiKey
       in: header
