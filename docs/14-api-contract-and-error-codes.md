@@ -349,9 +349,19 @@ M4 第一版要求锁定请求一次提交整单全部明细，每条明细恰�
 
 ### 10.3 报价、库存和订单
 
+内部指导价按 `varietyId + businessType` 单独维护，单位为 CNY/kg。管理端
+`GET /admin/quotation-guidance-prices` 对已登录内部人员开放；`PUT /admin/quotation-guidance-prices/{varietyId}/{businessType}`
+仅管理员、销售经理可用，请求为 `unitPrice` 与乐观锁 `expectedVersion`（首次为 `0`）。
+报价创建/修订时后端读取当前指导价并固化到该版本；请求中旧的 `guidanceUnitPrice` 字段不可信、不会参与审批。
+未配置指导价时记 `GUIDANCE_PRICE_MISSING` 并进入人工审批；低于指导价时记 `BELOW_GUIDANCE_PRICE`。
+每次指导价修改在 V020 历史表中保留版本、操作者和时间；现有报价中的指导价快照不随修改变化。
+已批准但尚未发送的报价可创建修订版以补齐条款；修订时撤销旧客户链接，按规则重新判定是否需审批并生成新链接。
+目前仅支持 CNY 报价，其他币种会被拒绝。俄语询价的报价必须补齐俄文关键交易条款才能发送和接受。
+
 | 错误码 | HTTP | 含义 |
 |---|---:|---|
 | `QUOTATION_APPROVAL_REQUIRED` | 409 | 报价必须先审批 |
+| `QUOTATION_TRANSLATION_REQUIRED` | 422 | 对俄报价的俄文关键交易条款尚未补齐 |
 | `QUOTATION_VERSION_IMMUTABLE` | 409 | 已发送版本不可修改 |
 | `QUOTATION_NOT_SENT` | 409 | 报价尚未正式发送 |
 | `QUOTATION_EXPIRED` | 410 | 报价已经过期 |

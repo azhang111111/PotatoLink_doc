@@ -1084,6 +1084,71 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /admin/quotation-guidance-prices:
+    get:
+      tags: [Admin quotations]
+      operationId: listQuotationGuidancePrices
+      summary: List manager-maintained CNY/kg prices for internal quotation work
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Prices grouped by variety and business type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string, enum: [OK] }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/QuotationGuidancePrice' }
+                  requestId: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /admin/quotation-guidance-prices/{varietyId}/{businessType}:
+    put:
+      tags: [Admin quotations]
+      operationId: saveQuotationGuidancePrice
+      summary: Create or update one guidance price; admin or sales manager only
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: varietyId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/SnowflakeId' }
+        - name: businessType
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/BusinessType' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unitPrice, expectedVersion]
+              properties:
+                unitPrice: { $ref: '#/components/schemas/DecimalString' }
+                expectedVersion: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: Updated price
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string, enum: [OK] }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/QuotationGuidancePrice' }
+                  requestId: { type: string }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /admin/quotations/{id}:
     get:
       tags: [Admin quotations]
@@ -3078,6 +3143,17 @@ components:
       type: string
       enum: [PENDING_APPROVAL, APPROVED, REJECTED, SENT, ACCEPTED,
         CUSTOMER_REJECTED, REVISION_REQUESTED, EXPIRED, SUPERSEDED]
+    QuotationGuidancePrice:
+      type: object
+      required: [id, varietyId, businessType, unitPrice, version, updatedBy, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/SnowflakeId' }
+        varietyId: { $ref: '#/components/schemas/SnowflakeId' }
+        businessType: { $ref: '#/components/schemas/BusinessType' }
+        unitPrice: { $ref: '#/components/schemas/DecimalString' }
+        version: { type: integer, minimum: 1 }
+        updatedBy: { $ref: '#/components/schemas/SnowflakeId' }
+        updatedAt: { type: string, format: date-time }
     QuotationItemCreateRequest:
       type: object
       required: [varietyId, quantityKg, unitPrice, specification, packageDescription]
@@ -3090,6 +3166,8 @@ components:
           $ref: '#/components/schemas/DecimalString'
         guidanceUnitPrice:
           $ref: '#/components/schemas/DecimalString'
+          deprecated: true
+          description: Legacy field ignored by the server; manager-maintained price is authoritative.
         specification:
           type: string
           maxLength: 200
@@ -3102,7 +3180,7 @@ components:
       properties:
         currency:
           type: string
-          pattern: '^[A-Z]{3}$'
+          enum: [CNY]
           example: CNY
         validityDays:
           type: integer
